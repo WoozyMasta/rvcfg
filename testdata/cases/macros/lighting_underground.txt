@@ -1,0 +1,35 @@
+#define UNUSED_PARAMS \
+	luminanceRectCoef = 0.0; \
+	luminanceRectCoefCloud = 0.0; \
+	rayleigh[] = {0.0, 0.0, 0.0}; \
+	mie[] = {0.0, 0.0, 0.0}; \
+	cloudsColor[] = {0.0, 0.0, 0.0}; \
+	swBrightness = 0;
+
+class LightingNew
+{
+  class Underground
+  {
+	height = 0;
+	overcast = 0.35;
+	sunAngle = 0.0;
+	sunOrMoon = 0.0;
+	diffuse[] = {{0.1,0.150,0.3}, 1.5};
+	diffuseCloud[] = {{0.1,0.150,0.3}, 1.5};
+	bidirect[] = {0.0, 0.0, 0.0};
+	bidirectCloud[] = {0.0, 0.0, 0.0};
+	ambient[] = {0.032,0.06,0.096};
+	ambientCloud[] = {0.032,0.06,0.096};
+	groundReflection[] = {0.004,0.0072,0.012};
+	groundReflectionCloud[] = {0.004,0.0072,0.012};
+	sky[] = {{0.018, 0.028, 0.043}, 1.5};
+	skyAroundSun[] = {{0.018, 0.028, 0.043}, 1.5};
+	desiredLuminanceCoef = 0.25;
+	desiredLuminanceCoefCloud = 0.25;
+	EVMin = -2.0;
+	EVMax = 0.0;
+	filmGrainIntensity = 0.0;
+
+	UNUSED_PARAMS
+  };
+};
