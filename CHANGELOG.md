@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning][].
 ### Removed
 -->
 
+## [0.1.1][] - 2026-02-26
+
+### Added
+
+* `RenderFile()` and `RenderFileWithOptions()` helpers for AST-to-text rendering.
+* `ArrayWrapByName` option for per-assignment multiline wrapping.
+
+[0.1.1]: https://github.com/WoozyMasta/rvcfg/compare/v0.1.0...v0.1.1
+
 ## [0.1.0][] - 2026-02-08
 
 ### Added
