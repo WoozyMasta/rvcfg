@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 import (
@@ -31,13 +35,13 @@ type LintIssue struct {
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
 	// Severity is issue severity. Defaults to warning when empty.
-	Severity Severity `json:"severity,omitempty" yaml:"severity,omitempty"`
+	Severity Severity `json:"severity,omitzero" yaml:"severity,omitempty"`
 
 	// Start is issue start position.
-	Start Position `json:"start,omitempty" yaml:"start,omitempty"`
+	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is issue end position.
-	End Position `json:"end,omitempty" yaml:"end,omitempty"`
+	End Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // LintEmit appends one rule issue.

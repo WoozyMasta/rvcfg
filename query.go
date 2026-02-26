@@ -1,4 +1,10 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
+
+import "strings"
 
 // StatementRef stores statement pointer with class scope path and source span.
 type StatementRef struct {
@@ -10,10 +16,10 @@ type StatementRef struct {
 	Statement *Statement `json:"statement,omitempty" yaml:"statement,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitempty" yaml:"start,omitempty"`
+	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitempty" yaml:"end,omitempty"`
+	End Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // WalkClasses iterates class declarations in source order.
@@ -112,9 +118,11 @@ func (ref StatementRef) PathString() string {
 	}
 
 	joined := ref.ClassPath[0]
+	var joinedSb115 strings.Builder
 	for idx := 1; idx < len(ref.ClassPath); idx++ {
-		joined += "/" + ref.ClassPath[idx]
+		joinedSb115.WriteString("/" + ref.ClassPath[idx])
 	}
+	joined += joinedSb115.String()
 
 	return joined
 }
@@ -127,7 +135,8 @@ func walkClassStatements(statements []Statement, parentPath []string, visit func
 			continue
 		}
 
-		nextPath := append(parentPath, stmt.Class.Name)
+		nextPath := append([]string(nil), parentPath...)
+		nextPath = append(nextPath, stmt.Class.Name)
 		path := append([]string(nil), nextPath...)
 		if !visit(path, stmt.Class) {
 			return false
@@ -159,7 +168,8 @@ func walkStatements(statements []Statement, classPath []string, visit func(ref S
 			continue
 		}
 
-		nextPath := append(classPath, stmt.Class.Name)
+		nextPath := append([]string(nil), classPath...)
+		nextPath = append(nextPath, stmt.Class.Name)
 		if !walkStatements(stmt.Class.Body, nextPath, visit) {
 			return false
 		}

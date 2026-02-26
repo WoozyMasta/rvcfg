@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 // NodeKind identifies AST statement node type.
@@ -43,10 +47,10 @@ type File struct {
 	Statements []Statement `json:"statements,omitempty" yaml:"statements,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitempty" yaml:"start,omitempty"`
+	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitempty" yaml:"end,omitempty"`
+	End Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // Statement stores one top-level or class-body declaration.
@@ -82,10 +86,10 @@ type Statement struct {
 	TrailingComments []Comment `json:"trailing_comments,omitempty" yaml:"trailing_comments,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitempty" yaml:"start,omitempty"`
+	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitempty" yaml:"end,omitempty"`
+	End Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // Comment stores original comment token text and position.
@@ -94,10 +98,10 @@ type Comment struct {
 	Text string `json:"text,omitempty" yaml:"text,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitempty" yaml:"start,omitempty"`
+	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitempty" yaml:"end,omitempty"`
+	End Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // ClassDecl describes class declaration body or forward declaration.
@@ -154,7 +158,7 @@ type PropertyAssign struct {
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// Value is assigned expression.
-	Value Value `json:"value,omitempty" yaml:"value,omitempty"`
+	Value Value `json:"value,omitzero" yaml:"value,omitempty"`
 }
 
 // ArrayAssign describes `name[] = value;` or `name[] += value;`.
@@ -163,7 +167,7 @@ type ArrayAssign struct {
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// Value is assigned expression, usually array literal.
-	Value Value `json:"value,omitempty" yaml:"value,omitempty"`
+	Value Value `json:"value,omitzero" yaml:"value,omitempty"`
 
 	// Append is true for `+=`, false for `=`.
 	Append bool `json:"append,omitempty" yaml:"append,omitempty"`
@@ -178,11 +182,11 @@ type Value struct {
 	Raw string `json:"raw,omitempty" yaml:"raw,omitempty"`
 
 	// Elements are nested items for ValueArray.
-	Elements []Value `json:"elements,omitempty" yaml:"elements,omitempty"`
+	Elements []Value `json:"elements,omitzero" yaml:"elements,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitempty" yaml:"start,omitempty"`
+	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitempty" yaml:"end,omitempty"`
+	End Position `json:"end,omitzero" yaml:"end,omitempty"`
 }

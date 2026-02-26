@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -17,13 +22,7 @@ func (p *preprocessor) evalIfExpression(expr string) bool {
 	}
 
 	if parts := splitTopLevelBy(expr, "||"); len(parts) > 1 {
-		for _, part := range parts {
-			if p.evalIfExpression(part) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(parts, p.evalIfExpression)
 	}
 
 	if parts := splitTopLevelBy(expr, "&&"); len(parts) > 1 {
@@ -85,8 +84,8 @@ func (p *preprocessor) evalIfNumericValue(expr string) (int64, bool) {
 		return 0, false
 	}
 
-	if strings.HasPrefix(expr, "defined") {
-		rest := strings.TrimSpace(strings.TrimPrefix(expr, "defined"))
+	if after, ok := strings.CutPrefix(expr, "defined"); ok {
+		rest := strings.TrimSpace(after)
 		if strings.HasPrefix(rest, "(") && strings.HasSuffix(rest, ")") {
 			name := strings.TrimSpace(rest[1 : len(rest)-1])
 			if p.macroExists(name) {

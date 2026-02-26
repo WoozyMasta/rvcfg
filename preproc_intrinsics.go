@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -36,7 +41,7 @@ func (p *preprocessor) expandExecEvalIntrinsics(line string) (string, error) {
 		}
 	}
 
-	return out, fmt.Errorf("__EXEC/__EVAL expansion depth overflow")
+	return out, errors.New("__EXEC/__EVAL expansion depth overflow")
 }
 
 func (p *preprocessor) expandExecIntrinsics(input string) (string, bool, error) {
@@ -234,7 +239,7 @@ func findIntrinsicCall(input string, name string, from int) (int, string, int, b
 
 func parseIntrinsicCallBody(input string, open int) (string, int, error) {
 	if open >= len(input) || input[open] != '(' {
-		return "", 0, fmt.Errorf("intrinsic call parse without opening parenthesis")
+		return "", 0, errors.New("intrinsic call parse without opening parenthesis")
 	}
 
 	start := open + 1
@@ -271,7 +276,7 @@ func parseIntrinsicCallBody(input string, open int) (string, int, error) {
 		}
 	}
 
-	return "", 0, fmt.Errorf("unterminated intrinsic call")
+	return "", 0, errors.New("unterminated intrinsic call")
 }
 
 func quoteIntrinsicString(value string) string {
@@ -354,7 +359,7 @@ func (p *intrinsicExprParser) parseAddSub() (intrinsicValue, error) {
 			}
 
 			if left.isString || right.isString {
-				return intrinsicValue{}, fmt.Errorf("operator '-' is not valid for string values")
+				return intrinsicValue{}, errors.New("operator '-' is not valid for string values")
 			}
 
 			left = intrinsicValue{number: left.number - right.number}
@@ -380,7 +385,7 @@ func (p *intrinsicExprParser) parseMulDiv() (intrinsicValue, error) {
 			}
 
 			if left.isString || right.isString {
-				return intrinsicValue{}, fmt.Errorf("operator '*' is not valid for string values")
+				return intrinsicValue{}, errors.New("operator '*' is not valid for string values")
 			}
 
 			left = intrinsicValue{number: left.number * right.number}
@@ -394,7 +399,7 @@ func (p *intrinsicExprParser) parseMulDiv() (intrinsicValue, error) {
 			}
 
 			if left.isString || right.isString {
-				return intrinsicValue{}, fmt.Errorf("operator '/' is not valid for string values")
+				return intrinsicValue{}, errors.New("operator '/' is not valid for string values")
 			}
 
 			left = intrinsicValue{number: left.number / right.number}
@@ -418,7 +423,7 @@ func (p *intrinsicExprParser) parseUnary() (intrinsicValue, error) {
 		}
 
 		if value.isString {
-			return intrinsicValue{}, fmt.Errorf("unary '-' is not valid for string values")
+			return intrinsicValue{}, errors.New("unary '-' is not valid for string values")
 		}
 
 		return intrinsicValue{number: -value.number}, nil
@@ -430,7 +435,7 @@ func (p *intrinsicExprParser) parseUnary() (intrinsicValue, error) {
 func (p *intrinsicExprParser) parsePrimary() (intrinsicValue, error) {
 	p.skipSpaces()
 	if p.eof() {
-		return intrinsicValue{}, fmt.Errorf("expected expression value")
+		return intrinsicValue{}, errors.New("expected expression value")
 	}
 
 	if p.match('(') {
@@ -441,7 +446,7 @@ func (p *intrinsicExprParser) parsePrimary() (intrinsicValue, error) {
 
 		p.skipSpaces()
 		if !p.match(')') {
-			return intrinsicValue{}, fmt.Errorf("expected ')'")
+			return intrinsicValue{}, errors.New("expected ')'")
 		}
 
 		return value, nil
@@ -470,7 +475,7 @@ func (p *intrinsicExprParser) parsePrimary() (intrinsicValue, error) {
 
 func (p *intrinsicExprParser) parseString() (intrinsicValue, error) {
 	if !p.match('"') {
-		return intrinsicValue{}, fmt.Errorf("expected string literal")
+		return intrinsicValue{}, errors.New("expected string literal")
 	}
 
 	start := p.pos
@@ -486,7 +491,7 @@ func (p *intrinsicExprParser) parseString() (intrinsicValue, error) {
 		p.pos++
 	}
 
-	return intrinsicValue{}, fmt.Errorf("unterminated string literal")
+	return intrinsicValue{}, errors.New("unterminated string literal")
 }
 
 func (p *intrinsicExprParser) parseNumber() (intrinsicValue, error) {
@@ -514,7 +519,7 @@ func (p *intrinsicExprParser) parseNumber() (intrinsicValue, error) {
 
 	raw := strings.TrimSpace(p.input[start:p.pos])
 	if raw == "" || raw == "." {
-		return intrinsicValue{}, fmt.Errorf("invalid number literal")
+		return intrinsicValue{}, errors.New("invalid number literal")
 	}
 
 	num, err := strconv.ParseFloat(raw, 64)

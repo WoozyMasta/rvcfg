@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 import (
@@ -36,7 +40,7 @@ type ParseResult struct {
 	Diagnostics []Diagnostic `json:"diagnostics,omitempty" yaml:"diagnostics,omitempty"`
 
 	// File is parsed AST root.
-	File File `json:"file,omitempty" yaml:"file,omitempty"`
+	File File `json:"file,omitzero" yaml:"file,omitempty"`
 }
 
 // valueStopMask stores stop-token set for scalar parsing.
@@ -255,7 +259,7 @@ func (p *parser) parseStatement(stopAtBrace bool) (Statement, bool) {
 		return p.parseAssignment(stopAtBrace)
 	}
 
-	p.emitError(CodeParUnexpectedToken, token.Start, fmt.Sprintf("unexpected token %s", token.Kind.String()))
+	p.emitError(CodeParUnexpectedToken, token.Start, "unexpected token "+token.Kind.String())
 	p.recoverStatement(stopAtBrace)
 
 	return Statement{}, false

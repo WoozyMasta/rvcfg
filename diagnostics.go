@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 import "fmt"
@@ -46,13 +50,13 @@ type Diagnostic struct {
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
 	// Severity defines impact of diagnostic.
-	Severity Severity `json:"severity,omitempty" yaml:"severity,omitempty"`
+	Severity Severity `json:"severity,omitzero" yaml:"severity,omitempty"`
 
 	// Start is start location.
-	Start Position `json:"start,omitempty" yaml:"start,omitempty"`
+	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is end location.
-	End Position `json:"end,omitempty" yaml:"end,omitempty"`
+	End Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // Error renders diagnostic in compact form.

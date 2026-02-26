@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 import (
@@ -241,7 +245,7 @@ func (p *preprocessor) processFile(path string, depth int) ([]mappedLine, error)
 
 	data, err := os.ReadFile(absPath)
 	if err != nil {
-		p.emitError(CodePPIncludeNotFound, absPath, 1, fmt.Sprintf("include target not found: %s", path))
+		p.emitError(CodePPIncludeNotFound, absPath, 1, "include target not found: "+path)
 
 		return nil, fmt.Errorf("%w: %q", ErrIncludeNotFound, path)
 	}
@@ -318,7 +322,7 @@ func (p *preprocessor) processText(filename string, text string, depth int) ([]m
 				CodePPUnresolvedMacroInvocation,
 				filename,
 				lineNo,
-				fmt.Sprintf("unresolved macro-like invocation(s): %s", strings.Join(unresolvedCalls, ", ")),
+				"unresolved macro-like invocation(s): "+strings.Join(unresolvedCalls, ", "),
 			)
 
 			return out, ErrUnresolvedMacroInvocation
@@ -492,7 +496,7 @@ func (p *preprocessor) handleDirective(
 		return nil, ErrInvalidDirective
 	}
 
-	p.emitError(CodePPUnsupportedDirective, filename, lineNo, fmt.Sprintf("unsupported directive #%s", name))
+	p.emitError(CodePPUnsupportedDirective, filename, lineNo, "unsupported directive #"+name)
 
 	return nil, ErrUnsupportedDirective
 }

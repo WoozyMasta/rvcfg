@@ -1,4 +1,8 @@
-// Command diagdocgen generates diagnostics markdown registry from catalog.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
+// package main implements command diagdocgen that generates diagnostics markdown registry from catalog.
 package main
 
 import (

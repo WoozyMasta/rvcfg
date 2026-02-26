@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -10,6 +15,14 @@ type FormatOptions struct {
 	// PreserveBlankLines limits how many empty lines to keep between neighbor statements.
 	// nil means default 1. Explicit 0 disables blank-line preservation.
 	PreserveBlankLines *int `json:"preserve_blank_lines,omitempty" yaml:"preserve_blank_lines,omitempty"`
+
+	// ArrayWrapByName configures per-assignment multiline wrapping
+	// and element grouping. Key is raw assignment name without [] suffix
+	// (for example: "SkeletonBones"), value N>0 means:
+	//  - wrap to multiline when element count exceeds N
+	//  - print up to N scalar elements per line in wrapped mode
+	// Value <= 0 disables count-based wrapping override for this assignment.
+	ArrayWrapByName map[string]int `json:"array_wrap_by_name,omitempty" yaml:"array_wrap_by_name,omitempty"`
 
 	// IndentChar is indentation symbol. Supported values: " " or "\t".
 	IndentChar string `json:"indent_char,omitempty" yaml:"indent_char,omitempty"`
@@ -35,6 +48,24 @@ type FormatOptions struct {
 	// PreserveComments keeps leading/trailing statement comments in formatted output.
 	// This mode preserves comments as standalone lines near statement boundaries.
 	PreserveComments bool `json:"preserve_comments,omitempty" yaml:"preserve_comments,omitempty"`
+}
+
+// RenderFile renders AST into canonical config text.
+func RenderFile(file File) ([]byte, error) {
+	return RenderFileWithOptions(file, FormatOptions{
+		PreserveComments: true,
+	})
+}
+
+// RenderFileWithOptions renders AST with configurable writer options.
+func RenderFileWithOptions(file File, opts FormatOptions) ([]byte, error) {
+	writer := newFormatter(opts)
+	formatted, err := writer.formatFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return []byte(formatted), nil
 }
 
 // Format applies canonical structural formatting for config syntax.
@@ -68,18 +99,19 @@ func FormatWithOptions(input []byte, opts FormatOptions) ([]byte, error) {
 
 // formatter emits canonical text from parsed AST.
 type formatter struct {
+	wrappedArrayPerLine    map[string]int
 	builder                strings.Builder
 	level                  int
 	indentSize             int
 	maxLineWidth           int
 	maxInlineArrayElements int
+	preserveBlankLines     int
 	indentChar             byte
 	compactEmptyClass      bool
 	preserveComments       bool
-	preserveBlankLines     int
 }
 
-// newFormatter creates AST formatter from options.
+// newFormatter creates AST formatter from render options.
 func newFormatter(opts FormatOptions) *formatter {
 	indentChar := byte(' ')
 	if opts.IndentChar == "\t" {
@@ -94,15 +126,13 @@ func newFormatter(opts FormatOptions) *formatter {
 	compactEmptyClass := !opts.DisableCompactEmptyClass
 	preserveBlankLines := 1
 	if opts.PreserveBlankLines != nil {
-		preserveBlankLines = *opts.PreserveBlankLines
-		if preserveBlankLines < 0 {
-			preserveBlankLines = 0
-		}
+		preserveBlankLines = max(*opts.PreserveBlankLines, 0)
 	}
 
 	return &formatter{
 		maxLineWidth:           opts.MaxLineWidth,
 		maxInlineArrayElements: opts.MaxInlineArrayElements,
+		wrappedArrayPerLine:    opts.ArrayWrapByName,
 		compactEmptyClass:      compactEmptyClass,
 		indentSize:             indentSize,
 		indentChar:             indentChar,
@@ -229,7 +259,7 @@ func (f *formatter) tryInlineTrailingComment(comment string) bool {
 // writeClass serializes class declaration.
 func (f *formatter) writeClass(classDecl *ClassDecl) error {
 	if classDecl == nil {
-		return fmt.Errorf("class payload is nil")
+		return errors.New("class payload is nil")
 	}
 
 	header := "class " + classDecl.Name
@@ -296,7 +326,7 @@ func (f *formatter) writeInterStatementBlankLines(prev Statement, next Statement
 // writeDelete serializes delete statement.
 func (f *formatter) writeDelete(deleteStmt *DeleteStmt) error {
 	if deleteStmt == nil {
-		return fmt.Errorf("delete payload is nil")
+		return errors.New("delete payload is nil")
 	}
 
 	f.writeLine("delete " + deleteStmt.Name + ";")
@@ -307,7 +337,7 @@ func (f *formatter) writeDelete(deleteStmt *DeleteStmt) error {
 // writeExtern serializes extern declaration.
 func (f *formatter) writeExtern(extern *ExternDecl) error {
 	if extern == nil {
-		return fmt.Errorf("extern payload is nil")
+		return errors.New("extern payload is nil")
 	}
 
 	prefix := "extern "
@@ -323,7 +353,7 @@ func (f *formatter) writeExtern(extern *ExternDecl) error {
 // writeEnum serializes enum declaration.
 func (f *formatter) writeEnum(enumDecl *EnumDecl) error {
 	if enumDecl == nil {
-		return fmt.Errorf("enum payload is nil")
+		return errors.New("enum payload is nil")
 	}
 
 	header := "enum"
@@ -353,16 +383,16 @@ func (f *formatter) writeEnum(enumDecl *EnumDecl) error {
 // writeProperty serializes scalar property assignment.
 func (f *formatter) writeProperty(property *PropertyAssign) error {
 	if property == nil {
-		return fmt.Errorf("property payload is nil")
+		return errors.New("property payload is nil")
 	}
 
-	return f.writeAssignment(property.Name, "=", property.Value, false)
+	return f.writeAssignment(property.Name, property.Name, "=", property.Value, false)
 }
 
 // writeArrayAssign serializes array assignment or append statement.
 func (f *formatter) writeArrayAssign(arrayAssign *ArrayAssign) error {
 	if arrayAssign == nil {
-		return fmt.Errorf("array assignment payload is nil")
+		return errors.New("array assignment payload is nil")
 	}
 
 	operator := "="
@@ -370,25 +400,31 @@ func (f *formatter) writeArrayAssign(arrayAssign *ArrayAssign) error {
 		operator = "+="
 	}
 
-	return f.writeAssignment(arrayAssign.Name+"[]", operator, arrayAssign.Value, true)
+	return f.writeAssignment(arrayAssign.Name+"[]", arrayAssign.Name, operator, arrayAssign.Value, true)
 }
 
 // writeAssignment serializes property and array assignment statements with soft-wrap.
-func (f *formatter) writeAssignment(name string, operator string, value Value, wrapArray bool) error {
+func (f *formatter) writeAssignment(
+	target string,
+	assignmentName string,
+	operator string,
+	value Value,
+	wrapArray bool,
+) error {
 	inlineValue, err := f.valueString(value)
 	if err != nil {
 		return err
 	}
 
-	inlineLine := name + " " + operator + " " + inlineValue + ";"
-	if !wrapArray || value.Kind != ValueArray || !f.shouldWrapArray(value, inlineLine) {
+	inlineLine := target + " " + operator + " " + inlineValue + ";"
+	if !wrapArray || value.Kind != ValueArray || !f.shouldWrapArray(value, inlineLine, assignmentName) {
 		f.writeLine(inlineLine)
 
 		return nil
 	}
 
-	f.writeLine(name + " " + operator)
-	if err := f.writeWrappedArray(value); err != nil {
+	f.writeLine(target + " " + operator)
+	if err := f.writeWrappedArray(value, assignmentName); err != nil {
 		return err
 	}
 
@@ -398,13 +434,23 @@ func (f *formatter) writeAssignment(name string, operator string, value Value, w
 }
 
 // writeWrappedArray serializes array value in multiline block form.
-func (f *formatter) writeWrappedArray(value Value) error {
+func (f *formatter) writeWrappedArray(value Value, assignmentName string) error {
 	if value.Kind != ValueArray {
 		return fmt.Errorf("wrapped array expected ValueArray, got %s", value.Kind)
 	}
 
 	f.writeLine("{")
 	f.level++
+
+	groupSize := f.wrappedArrayPerLine[assignmentName]
+	if groupSize > 1 {
+		if err := f.writeWrappedScalarArrayGroups(value, groupSize); err != nil {
+			return err
+		}
+
+		f.level--
+		return nil
+	}
 
 	for _, element := range value.Elements {
 		inlineElement, err := f.valueString(element)
@@ -413,11 +459,10 @@ func (f *formatter) writeWrappedArray(value Value) error {
 		}
 
 		inlineElementLine := inlineElement + ","
-		if element.Kind == ValueArray && f.shouldWrapArray(element, inlineElementLine) {
+		if element.Kind == ValueArray && f.shouldWrapArray(element, inlineElementLine, "") {
 			if err := f.writeWrappedArrayElement(element); err != nil {
 				return err
 			}
-
 			continue
 		}
 
@@ -425,8 +470,62 @@ func (f *formatter) writeWrappedArray(value Value) error {
 	}
 
 	f.level--
+	return nil
+}
+
+// writeWrappedScalarArrayGroups writes scalar arrays in grouped multiline rows.
+func (f *formatter) writeWrappedScalarArrayGroups(value Value, groupSize int) error {
+	if !isScalarArray(value) {
+		for _, element := range value.Elements {
+			inlineElement, err := f.valueString(element)
+			if err != nil {
+				return err
+			}
+
+			f.writeLine(inlineElement + ",")
+		}
+
+		return nil
+	}
+
+	for i := 0; i < len(value.Elements); {
+		end := min(i+groupSize, len(value.Elements))
+
+		row := ""
+		for chunkEnd := end; chunkEnd > i; chunkEnd-- {
+			rowValues := make([]string, 0, chunkEnd-i)
+			for j := i; j < chunkEnd; j++ {
+				rowValues = append(rowValues, value.Elements[j].Raw)
+			}
+
+			candidate := strings.Join(rowValues, ", ") + ","
+			if chunkEnd == i+1 || !f.shouldWrap(candidate) {
+				row = candidate
+				end = chunkEnd
+				break
+			}
+		}
+
+		f.writeLine(row)
+		i = end
+	}
 
 	return nil
+}
+
+// isScalarArray reports whether all elements in array value are scalar nodes.
+func isScalarArray(value Value) bool {
+	if value.Kind != ValueArray {
+		return false
+	}
+
+	for _, element := range value.Elements {
+		if element.Kind != ValueScalar {
+			return false
+		}
+	}
+
+	return true
 }
 
 // writeWrappedArrayElement serializes nested long array as multiline element.
@@ -445,11 +544,10 @@ func (f *formatter) writeWrappedArrayElement(value Value) error {
 		}
 
 		inlineElementLine := inlineElement + ","
-		if element.Kind == ValueArray && f.shouldWrapArray(element, inlineElementLine) {
+		if element.Kind == ValueArray && f.shouldWrapArray(element, inlineElementLine, "") {
 			if err := f.writeWrappedArrayElement(element); err != nil {
 				return err
 			}
-
 			continue
 		}
 
@@ -472,12 +570,20 @@ func (f *formatter) shouldWrap(line string) bool {
 }
 
 // shouldWrapArray combines width-based and element-count based wrapping conditions.
-func (f *formatter) shouldWrapArray(value Value, line string) bool {
+func (f *formatter) shouldWrapArray(value Value, line string, assignmentName string) bool {
 	if f.shouldWrap(line) {
 		return true
 	}
 
 	if value.Kind != ValueArray {
+		return false
+	}
+
+	if limit, ok := f.wrappedArrayPerLine[assignmentName]; ok {
+		if limit > 0 && len(value.Elements) > limit {
+			return true
+		}
+
 		return false
 	}
 
@@ -520,7 +626,7 @@ func (f *formatter) valueString(value Value) (string, error) {
 // writeLine appends one formatted line with current indentation.
 func (f *formatter) writeLine(line string) {
 	n := f.level * f.indentSize
-	for i := 0; i < n; i++ {
+	for range n {
 		f.builder.WriteByte(f.indentChar)
 	}
 

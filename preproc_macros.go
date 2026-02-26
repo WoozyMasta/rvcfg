@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -537,7 +542,7 @@ func findMacroCall(input string, name string, from int) (int, []string, int, boo
 // parseMacroArgs parses (...) argument list from opening parenthesis position.
 func parseMacroArgs(input string, open int) ([]string, int, error) {
 	if open >= len(input) || input[open] != '(' {
-		return nil, 0, fmt.Errorf("macro call parse without opening parenthesis")
+		return nil, 0, errors.New("macro call parse without opening parenthesis")
 	}
 
 	args := make([]string, 0, 4)
@@ -586,7 +591,7 @@ func parseMacroArgs(input string, open int) ([]string, int, error) {
 		}
 	}
 
-	return nil, 0, fmt.Errorf("unterminated macro argument list")
+	return nil, 0, errors.New("unterminated macro argument list")
 }
 
 // collapseTokenPaste removes ## operator and adjacent whitespace.

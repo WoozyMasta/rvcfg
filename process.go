@@ -1,12 +1,16 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 // ProcessAndParseResult stores preprocess and parse stage outputs.
 type ProcessAndParseResult struct {
 	// Preprocess is preprocessor stage output.
-	Preprocess PreprocessResult `json:"preprocess,omitempty" yaml:"preprocess,omitempty"`
+	Preprocess PreprocessResult `json:"preprocess,omitzero" yaml:"preprocess,omitempty"`
 
 	// Parse is parser stage output.
-	Parse ParseResult `json:"parse,omitempty" yaml:"parse,omitempty"`
+	Parse ParseResult `json:"parse,omitzero" yaml:"parse,omitempty"`
 }
 
 // ProcessAndParseFile runs processed mode pipeline: preprocess + parse.

@@ -152,6 +152,38 @@ func TestFormatWrapsArrayByElementLimit(t *testing.T) {
 	}
 }
 
+func TestFormatWrapsArrayByPerNameElementLimit(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(`class Cfg{SkeletonBones[]={"a","","b","","c",""};sections[]={"s1","s2","s3"};};`)
+	got, err := FormatWithOptions(input, FormatOptions{
+		MaxLineWidth:           0,
+		MaxInlineArrayElements: 0,
+		ArrayWrapByName: map[string]int{
+			"SkeletonBones": 2,
+		},
+	})
+	if err != nil {
+		t.Fatalf("FormatWithOptions error: %v", err)
+	}
+
+	want := "" +
+		"class Cfg\n" +
+		"{\n" +
+		"  SkeletonBones[] =\n" +
+		"  {\n" +
+		"    \"a\", \"\",\n" +
+		"    \"b\", \"\",\n" +
+		"    \"c\", \"\",\n" +
+		"  };\n" +
+		"  sections[] = {\"s1\", \"s2\", \"s3\"};\n" +
+		"};\n"
+
+	if string(got) != want {
+		t.Fatalf("unexpected per-name wrapped output\nwant:\n%s\ngot:\n%s", want, string(got))
+	}
+}
+
 func TestFormatCompactsEmptyClassByDefault(t *testing.T) {
 	t.Parallel()
 

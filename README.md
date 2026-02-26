@@ -68,6 +68,18 @@ out, err := rvcfg.FormatWithOptions(input, rvcfg.FormatOptions{
 })
 ```
 
+Render AST:
+
+```go
+rendered, err := rvcfg.RenderFileWithOptions(file, rvcfg.FormatOptions{
+  IndentChar:             "\t",
+  IndentSize:             1,
+  MaxLineWidth:           120,
+  MaxInlineArrayElements: 0,
+  PreserveComments:       true,
+})
+```
+
 Walk AST for custom lint rules:
 
 ```go
@@ -115,8 +127,28 @@ rvcfg.FormatOptions{
   IndentSize:               2,
   MaxLineWidth:             120,  // <=0 disables width wrapping
   MaxInlineArrayElements:   0,    // <=0 disables count wrapping
+  ArrayWrapByName: map[string]int{
+    "SkeletonBones": 2, // group elements in wrapped rows
+  },
   PreserveBlankLines:       nil,  // nil -> keep up to 1, &0 -> disable
   PreserveComments:         false, // keep statement-level comments
+  DisableCompactEmptyClass: false,
+}
+```
+
+AST renderer:
+
+```go
+rvcfg.FormatOptions{
+  IndentChar:               " ",  // or "\t"
+  IndentSize:               2,
+  MaxLineWidth:             120,  // <=0 disables width wrapping
+  MaxInlineArrayElements:   0,    // <=0 disables count wrapping
+  ArrayWrapByName: map[string]int{
+    "SkeletonBones": 2, // group elements in wrapped rows
+  },
+  PreserveBlankLines:       nil,  // nil -> keep up to 1, &0 -> disable
+  PreserveComments:         true, // keep statement-level comments
   DisableCompactEmptyClass: false,
 }
 ```

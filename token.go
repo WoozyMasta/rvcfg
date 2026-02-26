@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 WoozyMasta
+// Source: github.com/woozymasta/rvcfg
+
 package rvcfg
 
 // TokenKind is lexical token type.
@@ -86,13 +90,13 @@ type Token struct {
 	Lexeme string `json:"lexeme,omitempty" yaml:"lexeme,omitempty"`
 
 	// Start is token start location.
-	Start Position `json:"start,omitempty" yaml:"start,omitempty"`
+	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is token end location.
-	End Position `json:"end,omitempty" yaml:"end,omitempty"`
+	End Position `json:"end,omitzero" yaml:"end,omitempty"`
 
 	// Kind is token type.
-	Kind TokenKind `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind TokenKind `json:"kind,omitzero" yaml:"kind,omitempty"`
 }
 
 // String renders readable token kind name.
