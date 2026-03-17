@@ -2,6 +2,7 @@ package rvcfg
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -256,6 +257,55 @@ class CfgTest
 
 	if withRawProp.Value.Raw != "-1" {
 		t.Fatalf("expected Value.Raw to be -1, got %q", withRawProp.Value.Raw)
+	}
+}
+
+func TestParseTokensMatchesParseBytes(t *testing.T) {
+	t.Parallel()
+
+	source := []byte(`
+class CfgTest
+{
+	value = 1;
+	items[] = {1, 2, 3};
+};
+`)
+
+	parseBytesResult, err := ParseBytes("tokens-parity.cpp", source, ParseOptions{
+		CaptureScalarRaw: true,
+	})
+	if err != nil {
+		t.Fatalf("ParseBytes parity source error: %v", err)
+	}
+
+	tokens, diagnostics, err := LexBytes("tokens-parity.cpp", source)
+	if err != nil {
+		t.Fatalf("LexBytes parity source error: %v", err)
+	}
+
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == SeverityError {
+			t.Fatalf("LexBytes parity diagnostic: %s", diagnostic.Error())
+		}
+	}
+
+	parseTokensResult, err := ParseTokens("tokens-parity.cpp", source, tokens, ParseOptions{
+		CaptureScalarRaw: true,
+	})
+	if err != nil {
+		t.Fatalf("ParseTokens parity source error: %v", err)
+	}
+
+	if !reflect.DeepEqual(parseBytesResult.File, parseTokensResult.File) {
+		t.Fatalf("ParseTokens file mismatch:\nbytes=%+v\ntokens=%+v", parseBytesResult.File, parseTokensResult.File)
+	}
+
+	if !reflect.DeepEqual(parseBytesResult.Diagnostics, parseTokensResult.Diagnostics) {
+		t.Fatalf(
+			"ParseTokens diagnostics mismatch:\nbytes=%+v\ntokens=%+v",
+			parseBytesResult.Diagnostics,
+			parseTokensResult.Diagnostics,
+		)
 	}
 }
 

@@ -7,6 +7,7 @@ package rvcfg
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 )
@@ -35,11 +36,11 @@ func (p *preprocessor) defineMacro(raw string, filename string, lineNo int) erro
 	rest := raw[nameEnd:]
 
 	existing, exists := p.macros[name]
-	if exists && existing.FunctionLike {
+	if p.enableMacroRedefWarn && exists && existing.FunctionLike {
 		p.emitMacroRedefinedWarning(filename, lineNo, "function-like", name)
 	}
 
-	if exists && !existing.FunctionLike {
+	if p.enableMacroRedefWarn && exists && !existing.FunctionLike {
 		p.emitMacroRedefinedWarning(filename, lineNo, "object-like", name)
 	}
 
@@ -52,7 +53,11 @@ func (p *preprocessor) defineMacro(raw string, filename string, lineNo int) erro
 		}
 
 		paramText := strings.TrimSpace(rest[1:closeIdx])
-		body := strings.TrimSpace(rest[closeIdx+1:])
+		// Keep continuation indentation and trailing separator spaces for
+		// closer CfgConvert -pcpp parity.
+		// Drop only single delimiter whitespace after ")" in one-line macros.
+		body := rest[closeIdx+1:]
+		body = trimSingleMacroBodyDelimiter(body)
 		params := parseParams(paramText)
 
 		p.macros[name] = macroDefinition{
@@ -76,6 +81,22 @@ func (p *preprocessor) defineMacro(raw string, filename string, lineNo int) erro
 	return nil
 }
 
+// trimSingleMacroBodyDelimiter removes exactly one whitespace delimiter between
+// function-like macro parameter list and body token.
+func trimSingleMacroBodyDelimiter(body string) string {
+	if len(body) < 2 {
+		return body
+	}
+
+	first := body[0]
+	second := body[1]
+	if (first == ' ' || first == '\t') && second != ' ' && second != '\t' {
+		return body[1:]
+	}
+
+	return body
+}
+
 // emitMacroRedefinedWarning emits one warning per file+kind+name redefinition key.
 func (p *preprocessor) emitMacroRedefinedWarning(filename string, lineNo int, kind string, name string) {
 	key := filename + "\x00" + kind + "\x00" + name
@@ -89,21 +110,39 @@ func (p *preprocessor) emitMacroRedefinedWarning(filename string, lineNo int, ki
 
 // expandLine expands function-like and object-like macros.
 func (p *preprocessor) expandLine(line string) (string, error) {
+	hasFunctionMacros := len(p.functionMacroNames()) > 0
+	if hasFunctionMacros {
+		savedMacros := cloneMacroDefinitions(p.macros)
+		savedDirty := p.macroNamesDirty
+		savedObjectNames := append([]string(nil), p.objectMacroNamesV0...)
+		savedFunctionNames := append([]string(nil), p.functionMacroNamesV0...)
+		defer func() {
+			p.macros = savedMacros
+			p.macroNamesDirty = savedDirty
+			p.objectMacroNamesV0 = savedObjectNames
+			p.functionMacroNamesV0 = savedFunctionNames
+		}()
+	}
+
 	result := line
 
 	for pass := 0; pass < p.maxExpandDepth; pass++ {
 		changed := false
 
-		next, changedFunc, err := p.expandFunctionMacros(result)
-		if err != nil {
-			return result, fmt.Errorf("%w: %v", ErrMacroExpand, err)
+		next := result
+		changedFunc := false
+		if hasFunctionMacros {
+			next, changedFunc = p.expandFunctionMacros(next)
 		}
 
 		next, changedObj := p.expandObjectMacros(next)
-		changed = changedFunc || changedObj
+		next, changedStringify := collapseStringifyTokens(next)
+		changed = changedFunc || changedObj || changedStringify
 		result = next
 
 		if !changed {
+			result = collapseTokenPaste(result)
+
 			return result, nil
 		}
 	}
@@ -111,11 +150,133 @@ func (p *preprocessor) expandLine(line string) (string, error) {
 	return result, fmt.Errorf("%w: expansion depth overflow", ErrMacroExpand)
 }
 
+// collapseStringifyTokens converts standalone #IDENT tokens into quoted strings.
+// This keeps DayZ-compatible behavior for object-like macros such as:
+//
+//	#define MACRO#test
+//	MACRO -> "test"
+func collapseStringifyTokens(input string) (string, bool) {
+	if input == "" || !strings.Contains(input, "#") {
+		return input, false
+	}
+
+	var out strings.Builder
+	lastWrite := 0
+	replaced := false
+
+	inString := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(input); {
+		if inLineComment {
+			if input[i] == '\n' {
+				inLineComment = false
+			}
+
+			i++
+
+			continue
+		}
+
+		if inBlockComment {
+			if input[i] == '*' && i+1 < len(input) && input[i+1] == '/' {
+				inBlockComment = false
+				i += 2
+
+				continue
+			}
+
+			i++
+
+			continue
+		}
+
+		if inString {
+			if input[i] == '"' {
+				inString = false
+			}
+
+			i++
+
+			continue
+		}
+
+		if input[i] == '"' {
+			inString = true
+			i++
+
+			continue
+		}
+
+		if input[i] == '/' && i+1 < len(input) && input[i+1] == '/' {
+			inLineComment = true
+			i += 2
+
+			continue
+		}
+
+		if input[i] == '/' && i+1 < len(input) && input[i+1] == '*' {
+			inBlockComment = true
+			i += 2
+
+			continue
+		}
+
+		if input[i] != '#' {
+			i++
+
+			continue
+		}
+
+		if i+1 < len(input) && input[i+1] == '#' {
+			i += 2
+
+			continue
+		}
+
+		nameStart := i + 1
+		for nameStart < len(input) && isTokenPasteSpace(input[nameStart]) {
+			nameStart++
+		}
+
+		if nameStart >= len(input) || !isIdentifierStart(input[nameStart]) {
+			i++
+
+			continue
+		}
+
+		nameEnd := nameStart + 1
+		for nameEnd < len(input) && isIdentifierPart(input[nameEnd]) {
+			nameEnd++
+		}
+
+		name := input[nameStart:nameEnd]
+		if !replaced {
+			out.Grow(len(input))
+			replaced = true
+		}
+
+		out.WriteString(input[lastWrite:i])
+		out.WriteString(quoteIntrinsicString(name))
+		lastWrite = nameEnd
+		i = nameEnd
+	}
+
+	if !replaced {
+		return input, false
+	}
+
+	out.WriteString(input[lastWrite:])
+
+	return out.String(), true
+}
+
 // expandFunctionMacros expands function-like invocations.
-func (p *preprocessor) expandFunctionMacros(input string) (string, bool, error) {
+func (p *preprocessor) expandFunctionMacros(input string) (string, bool) {
 	names := p.functionMacroNames()
 	if len(names) == 0 {
-		return input, false, nil
+		return input, false
 	}
 
 	changedAny := false
@@ -130,39 +291,63 @@ func (p *preprocessor) expandFunctionMacros(input string) (string, bool, error) 
 		searchFrom := 0
 
 		for {
-			start, args, end, ok, err := findMacroCall(output, name, searchFrom)
-			if err != nil {
-				return output, changedAny, err
-			}
+			start, args, end, ok := findMacroCall(output, name, searchFrom)
 
 			if !ok {
 				break
 			}
 
-			if len(args) != len(def.Params) {
-				return output, changedAny, fmt.Errorf(
-					"macro %s expects %d args, got %d",
-					name,
-					len(def.Params),
-					len(args),
-				)
+			if args == nil {
+				if fallbackArgs, ok := malformedTwoArgFallback(def, output[start+len(name)+1:end]); ok {
+					if end < len(output) && output[end] == ';' {
+						end++
+					}
+
+					args = fallbackArgs
+				}
 			}
+
+			if args == nil {
+				if shouldConsumeMalformedCallSemicolon(output, start, name, end) {
+					end++
+				}
+
+				// Malformed call syntax is tolerated by DayZ CfgConvert in strict
+				// mode. Drop the invocation span and keep preprocessing.
+				output = output[:start] + output[end:]
+				searchFrom = start
+				changedAny = true
+
+				continue
+			}
+
+			if len(args) != len(def.Params) {
+				// DayZ CfgConvert does not fail on arg-count mismatch for
+				// function-like macro calls. It drops the whole invocation.
+				output = output[:start] + output[end:]
+				searchFrom = start
+				changedAny = true
+
+				continue
+			}
+
+			p.bindMacroParams(def.Params, args)
 
 			replacement := def.Body
 			replacement = stringifyMacroParams(replacement, def.Params, args)
 
 			for idx := range def.Params {
-				replacement = replaceIdentifierTokens(replacement, def.Params[idx], strings.TrimSpace(args[idx]))
+				replacement = replaceIdentifierTokens(replacement, def.Params[idx], args[idx])
 			}
 
-			replacement = collapseTokenPaste(replacement)
+			replacement, _ = p.expandObjectMacros(replacement)
 			output = output[:start] + replacement + output[end:]
 			searchFrom = start + len(replacement)
 			changedAny = true
 		}
 	}
 
-	return output, changedAny, nil
+	return output, changedAny
 }
 
 // stringifyMacroParams applies #param stringification for function-like macros.
@@ -299,7 +484,7 @@ func stringifyMacroParams(body string, params []string, args []string) string {
 
 // stringifyMacroArg converts raw macro argument text to quoted string literal.
 func stringifyMacroArg(arg string) string {
-	value := strings.TrimSpace(arg)
+	value := arg
 	value = strings.ReplaceAll(value, `\`, `\\`)
 	value = strings.ReplaceAll(value, `"`, `\"`)
 
@@ -401,6 +586,42 @@ func parseParams(raw string) []string {
 	}
 
 	return params
+}
+
+// bindMacroParams binds function-like arguments as temporary object-like macros.
+// This mirrors DayZ CfgConvert behavior for nested expansions relying on outer args.
+func (p *preprocessor) bindMacroParams(params []string, args []string) {
+	if len(params) == 0 || len(args) == 0 {
+		return
+	}
+
+	count := min(len(params), len(args))
+
+	for i := range count {
+		name := strings.TrimSpace(params[i])
+		if name == "" {
+			continue
+		}
+
+		p.macros[name] = macroDefinition{
+			Name: name,
+			Body: args[i],
+		}
+	}
+
+	p.macroNamesDirty = true
+}
+
+// cloneMacroDefinitions copies macro table for temporary line-local mutation.
+func cloneMacroDefinitions(in map[string]macroDefinition) map[string]macroDefinition {
+	if len(in) == 0 {
+		return map[string]macroDefinition{}
+	}
+
+	out := make(map[string]macroDefinition, len(in))
+	maps.Copy(out, in)
+
+	return out
 }
 
 // replaceIdentifierTokens replaces identifier token outside strings/comments.
@@ -513,30 +734,177 @@ func hasIdentifierAt(input string, at int, name string) bool {
 }
 
 // findMacroCall finds NAME(args...) invocation and returns parsed args and range.
-func findMacroCall(input string, name string, from int) (int, []string, int, bool, error) {
+func findMacroCall(input string, name string, from int) (int, []string, int, bool) {
 	if from < 0 {
 		from = 0
 	}
 
-	for i := from; i < len(input); i++ {
+	inString := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(input); {
+		if inLineComment {
+			if input[i] == '\n' {
+				inLineComment = false
+			}
+
+			i++
+
+			continue
+		}
+
+		if inBlockComment {
+			if input[i] == '*' && i+1 < len(input) && input[i+1] == '/' {
+				inBlockComment = false
+				i += 2
+
+				continue
+			}
+
+			i++
+
+			continue
+		}
+
+		if inString {
+			if input[i] == '"' {
+				inString = false
+			}
+
+			i++
+
+			continue
+		}
+
+		if input[i] == '"' {
+			inString = true
+			i++
+
+			continue
+		}
+
+		if input[i] == '/' && i+1 < len(input) && input[i+1] == '/' {
+			inLineComment = true
+			i += 2
+
+			continue
+		}
+
+		if input[i] == '/' && i+1 < len(input) && input[i+1] == '*' {
+			inBlockComment = true
+			i += 2
+
+			continue
+		}
+
+		if i < from {
+			i++
+
+			continue
+		}
+
 		if !hasIdentifierAt(input, i, name) {
+			i++
+
 			continue
 		}
 
 		open := i + len(name)
 		if open >= len(input) || input[open] != '(' {
+			i++
+
 			continue
 		}
 
 		args, end, err := parseMacroArgs(input, open)
 		if err != nil {
-			return 0, nil, 0, false, err
+			return i, nil, findMalformedMacroCallEnd(input, open), true
 		}
 
-		return i, args, end, true, nil
+		return i, args, end, true
 	}
 
-	return 0, nil, 0, false, nil
+	return 0, nil, 0, false
+}
+
+// findMalformedMacroCallEnd finds safe truncate point for malformed macro call.
+func findMalformedMacroCallEnd(input string, open int) int {
+	if open < 0 || open >= len(input) {
+		return len(input)
+	}
+
+	for i := open + 1; i < len(input); i++ {
+		switch input[i] {
+		case ';', '\n', '\r', '{', '}':
+			return i
+		}
+	}
+
+	return len(input)
+}
+
+// malformedTwoArgFallback emulates DayZ malformed two-arg behavior where
+// `NAME(a,b` may still resolve as `NAME(a,a)` in strict mode.
+func malformedTwoArgFallback(def macroDefinition, callBody string) ([]string, bool) {
+	if len(def.Params) != 2 {
+		return nil, false
+	}
+
+	if strings.Contains(callBody, `"`) || strings.Contains(callBody, "//") || strings.Contains(callBody, "/*") {
+		return nil, false
+	}
+
+	depth := 0
+	comma := -1
+	for i := 0; i < len(callBody); i++ {
+		switch callBody[i] {
+		case '(':
+			depth++
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				if comma >= 0 {
+					return nil, false
+				}
+
+				comma = i
+			}
+		}
+	}
+
+	if comma < 0 {
+		return nil, false
+	}
+
+	first := strings.TrimSpace(callBody[:comma])
+	if first == "" {
+		return nil, false
+	}
+
+	return []string{first, first}, true
+}
+
+// shouldConsumeMalformedCallSemicolon decides whether trailing ';' should be
+// consumed together with malformed invocation span.
+func shouldConsumeMalformedCallSemicolon(input string, start int, name string, end int) bool {
+	if end < 0 || end >= len(input) || input[end] != ';' {
+		return false
+	}
+
+	if end+1 < len(input) && (input[end+1] == '\n' || input[end+1] == '\r') {
+		return true
+	}
+
+	bodyStart := start + len(name) + 1
+	if bodyStart < 0 || bodyStart > end {
+		return false
+	}
+
+	return strings.Contains(input[bodyStart:end], `"`)
 }
 
 // parseMacroArgs parses (...) argument list from opening parenthesis position.
@@ -546,7 +914,8 @@ func parseMacroArgs(input string, open int) ([]string, int, error) {
 	}
 
 	args := make([]string, 0, 4)
-	start := open + 1
+	var current strings.Builder
+	current.Grow(32)
 	depth := 1
 	inString := false
 
@@ -557,70 +926,180 @@ func parseMacroArgs(input string, open int) ([]string, int, error) {
 				inString = false
 			}
 
+			// DayZ CfgConvert quirk: commas inside macro argument
+			// double-quoted strings are removed.
+			if ch != ',' {
+				current.WriteByte(ch)
+			}
+
 			continue
 		}
 
 		if ch == '"' {
 			inString = true
+			current.WriteByte(ch)
+
 			continue
 		}
 
 		if ch == '(' {
 			depth++
+			current.WriteByte(ch)
+
 			continue
 		}
 
 		if ch == ')' {
 			depth--
 			if depth == 0 {
-				arg := strings.TrimSpace(input[start:i])
-				if arg != "" || len(args) > 0 {
+				arg := current.String()
+				if strings.TrimSpace(arg) != "" || len(args) > 0 {
 					args = append(args, arg)
 				}
 
 				return args, i + 1, nil
 			}
 
+			current.WriteByte(ch)
+
 			continue
 		}
 
 		if ch == ',' && depth == 1 {
-			arg := strings.TrimSpace(input[start:i])
+			arg := current.String()
 			args = append(args, arg)
-			start = i + 1
+			current.Reset()
+
+			continue
 		}
+
+		current.WriteByte(ch)
 	}
 
 	return nil, 0, errors.New("unterminated macro argument list")
 }
 
-// collapseTokenPaste removes ## operator and adjacent whitespace.
+// collapseTokenPaste removes ## operator and adjacent whitespace outside
+// string literals and comments.
 func collapseTokenPaste(input string) string {
-	for {
-		idx := strings.Index(input, "##")
-		if idx < 0 {
-			return input
-		}
+	if input == "" || !strings.Contains(input, "##") {
+		return input
+	}
 
-		left := idx
-		for left > 0 && isTokenPasteSpace(input[left-1]) {
-			left--
-		}
+	out := make([]byte, 0, len(input))
+	changed := false
+	inString := false
+	inLineComment := false
+	inBlockComment := false
 
-		right := idx + 2
-		for right < len(input) && isTokenPasteSpace(input[right]) {
-			right++
-		}
+	for i := 0; i < len(input); {
+		if inLineComment {
+			out = append(out, input[i])
+			if input[i] == '\n' {
+				inLineComment = false
+			}
 
-		// Keep a separator for keyword->identifier edges (for example "class ##Name"),
-		// because corpus macros rely on this compatibility behavior.
-		if shouldKeepTokenPasteSeparator(input, left, right) {
-			input = input[:left] + " " + input[right:]
+			i++
+
 			continue
 		}
 
-		input = input[:left] + input[right:]
+		if inBlockComment {
+			out = append(out, input[i])
+			if input[i] == '*' && i+1 < len(input) && input[i+1] == '/' {
+				out = append(out, input[i+1])
+				inBlockComment = false
+				i += 2
+
+				continue
+			}
+
+			i++
+
+			continue
+		}
+
+		if inString {
+			out = append(out, input[i])
+			if input[i] == '"' {
+				inString = false
+			}
+
+			i++
+
+			continue
+		}
+
+		if input[i] == '"' {
+			inString = true
+			out = append(out, input[i])
+			i++
+
+			continue
+		}
+
+		if input[i] == '/' && i+1 < len(input) && input[i+1] == '/' {
+			inLineComment = true
+			out = append(out, input[i], input[i+1])
+			i += 2
+
+			continue
+		}
+
+		if input[i] == '/' && i+1 < len(input) && input[i+1] == '*' {
+			inBlockComment = true
+			out = append(out, input[i], input[i+1])
+			i += 2
+
+			continue
+		}
+
+		if i+1 < len(input) && input[i] == '#' && input[i+1] == '#' {
+			changed = true
+
+			leftBoundary := len(out)
+			for leftBoundary > 0 && isTokenPasteSpace(out[leftBoundary-1]) {
+				leftBoundary--
+			}
+
+			leftToken := tokenLeftOf(string(out[:leftBoundary]), leftBoundary)
+			leftHasToken := leftToken != ""
+			if leftHasToken {
+				out = out[:leftBoundary]
+			}
+
+			i += 2
+			rightBoundary := i
+			for rightBoundary < len(input) && isTokenPasteSpace(input[rightBoundary]) {
+				rightBoundary++
+			}
+
+			rightToken := tokenRightOf(input, rightBoundary)
+			if leftHasToken && rightToken != "" {
+				i = rightBoundary
+
+				if shouldKeepTokenPasteSeparatorByToken(leftToken, rightToken) {
+					out = append(out, ' ')
+				}
+
+				continue
+			}
+
+			out = append(out, input[i:rightBoundary]...)
+			i = rightBoundary
+
+			continue
+		}
+
+		out = append(out, input[i])
+		i++
 	}
+
+	if !changed {
+		return input
+	}
+
+	return string(out)
 }
 
 // isTokenPasteSpace checks collapsible whitespace around ## operator.
@@ -628,19 +1107,9 @@ func isTokenPasteSpace(ch byte) bool {
 	return ch == ' ' || ch == '\t'
 }
 
-// shouldKeepTokenPasteSeparator decides whether ## collapse must keep one space.
-func shouldKeepTokenPasteSeparator(input string, left int, right int) bool {
-	if left <= 0 || right >= len(input) {
-		return false
-	}
-
-	leftToken := tokenLeftOf(input, left)
-	if leftToken == "" {
-		return false
-	}
-
-	rightToken := tokenRightOf(input, right)
-	if rightToken == "" {
+// shouldKeepTokenPasteSeparatorByToken applies keyword boundary separator rule.
+func shouldKeepTokenPasteSeparatorByToken(leftToken string, rightToken string) bool {
+	if leftToken == "" || rightToken == "" {
 		return false
 	}
 
@@ -678,130 +1147,6 @@ func tokenRightOf(input string, boundary int) string {
 	}
 
 	return input[boundary:end]
-}
-
-// findUnresolvedMacroCalls finds unresolved macro-like NAME(...) invocations in a source line.
-func (p *preprocessor) findUnresolvedMacroCalls(line string, inBlockComment bool) ([]string, bool) {
-	found := make(map[string]struct{})
-	inString := false
-
-	for i := 0; i < len(line); {
-		if inBlockComment {
-			if i+1 < len(line) && line[i] == '*' && line[i+1] == '/' {
-				inBlockComment = false
-				i += 2
-
-				continue
-			}
-
-			i++
-
-			continue
-		}
-
-		if inString {
-			if line[i] == '"' {
-				inString = false
-			}
-
-			i++
-
-			continue
-		}
-
-		if line[i] == '"' {
-			inString = true
-			i++
-
-			continue
-		}
-
-		if i+1 < len(line) && line[i] == '/' && line[i+1] == '/' {
-			break
-		}
-
-		if i+1 < len(line) && line[i] == '/' && line[i+1] == '*' {
-			inBlockComment = true
-			i += 2
-
-			continue
-		}
-
-		if !isIdentifierStart(line[i]) {
-			i++
-
-			continue
-		}
-
-		start := i
-		i++
-		for i < len(line) && isIdentifierPart(line[i]) {
-			i++
-		}
-
-		name := line[start:i]
-		if !isLikelyMacroName(name) {
-			continue
-		}
-
-		if i >= len(line) || line[i] != '(' {
-			continue
-		}
-
-		if p.macroExists(name) {
-			continue
-		}
-
-		found[name] = struct{}{}
-	}
-
-	if len(found) == 0 {
-		return nil, inBlockComment
-	}
-
-	out := make([]string, 0, len(found))
-	for name := range found {
-		out = append(out, name)
-	}
-
-	sort.Strings(out)
-
-	return out, inBlockComment
-}
-
-// isLikelyMacroName checks macro-like naming style to reduce false positives on regular calls.
-func isLikelyMacroName(name string) bool {
-	if name == "" {
-		return false
-	}
-
-	if !isIdentifierStart(name[0]) {
-		return false
-	}
-
-	hasLetter := false
-
-	for i := 0; i < len(name); i++ {
-		ch := name[i]
-
-		if ch >= 'a' && ch <= 'z' {
-			return false
-		}
-
-		if ch >= 'A' && ch <= 'Z' {
-			hasLetter = true
-
-			continue
-		}
-
-		if ch == '_' || (ch >= '0' && ch <= '9') {
-			continue
-		}
-
-		return false
-	}
-
-	return hasLetter
 }
 
 // mergeLineContinuationsWithSourceLines joins lines ending with backslash.

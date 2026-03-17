@@ -86,7 +86,7 @@ func newLexer(filename string, data []byte, opts LexOptions) *lexer {
 
 // scan tokenizes all input and appends EOF token.
 func (l *lexer) scan() ([]Token, []Diagnostic) {
-	tokens := make([]Token, 0, len(l.data)/4)
+	tokens := make([]Token, 0, estimateTokenCap(len(l.data), l.opts))
 	diagnostics := make([]Diagnostic, 0)
 
 	for !l.eof() {
@@ -272,6 +272,28 @@ func (l *lexer) scan() ([]Token, []Diagnostic) {
 	})
 
 	return tokens, diagnostics
+}
+
+// estimateTokenCap returns initial token slice capacity for lex workload.
+func estimateTokenCap(dataLen int, opts LexOptions) int {
+	if dataLen <= 0 {
+		return 0
+	}
+
+	// Default parse mode skips comments/newlines and still produces a dense token
+	// stream for config grammar. Use a higher baseline to avoid costly growslice
+	// on large files.
+	capHint := dataLen / 2
+	if opts.EmitComments || opts.EmitNewlines {
+		capHint = (dataLen * 3) / 4
+	}
+
+	const minCap = 64
+	if capHint < minCap {
+		return minCap
+	}
+
+	return capHint
 }
 
 // matchSignedNumberStart checks whether current '-' starts numeric literal.

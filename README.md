@@ -99,13 +99,32 @@ Preprocess:
 
 ```go
 rvcfg.PreprocessOptions{
+  Mode:            rvcfg.PreprocessModeStrict, // strict|compat|extended
   Defines:         map[string]string{"DEBUG": "1"},
   IncludeDirs:     []string{"./include"},
   IncludeResolver: nil, // optional custom resolver
-  EnableExecEvalIntrinsics: false, // opt-in compatibility mode
-  EnableDynamicIntrinsics:  false, // opt-in date/time/counter/rand intrinsics
+  // strict default keeps DayZ-like behavior:
+  EnableIfExpressions:      false, // #if/#elif disabled in strict
+  EnableExecEvalIntrinsics: false, // __EXEC/__EVAL opt-in
+  EnableDynamicIntrinsics:  false, // date/time/counter/rand opt-in
+  EnableFileNameIntrinsics: false, // __FILE_NAME__/__FILE_SHORT__ opt-in
+  ExtendedFSRoot:           "",    // optional root for __FILES_* in extended
+  ExtendedFSMaxItems:       512,   // safety cap for __FILES_* matches
+  ExtendedLoopMaxItems:     2048,  // safety cap for __FOR_RANGE_RENDER
 }
 ```
+
+`PreprocessModeExtended` enables additional deterministic helper intrinsics
+for path normalization, string transforms, file-list rendering, and
+range/list templating.
+
+See [PREPROCESSOR.md](PREPROCESSOR.md) for the complete intrinsic list,
+syntax, limits, and compatibility details.
+
+Parity note:
+
+* strict mode targets semantic parity by default;
+* exact `CfgConvert -pcpp` text formatting is not a strict-mode target.
 
 Parser:
 
@@ -168,7 +187,5 @@ all := rvcfg.DiagnosticCatalog()
 spec, ok := rvcfg.DiagnosticByCode("PAR001")
 ```
 
-## Docs
-
-* [MACROS.md](MACROS.md) - macro and preprocessor guide.
-* [DIAGNOSTICS.md](DIAGNOSTICS.md) - diagnostic code registry.
+All diagnostic codes are documented in the full registry:
+[DIAGNOSTICS.md](DIAGNOSTICS.md).

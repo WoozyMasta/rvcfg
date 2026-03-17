@@ -134,6 +134,104 @@ class Root {};
 	}
 }
 
+func TestPreprocessFile_IncludeWithAngleBrackets(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	root := filepath.Join(dir, "root.cpp")
+	include := filepath.Join(dir, "inc.hpp")
+
+	rootSource := `#include <inc.hpp>
+class Root {};
+`
+
+	includeSource := `#define FROM_INCLUDE 11
+value = FROM_INCLUDE;
+`
+
+	if err := os.WriteFile(root, []byte(rootSource), 0o600); err != nil {
+		t.Fatalf("write root source: %v", err)
+	}
+
+	if err := os.WriteFile(include, []byte(includeSource), 0o600); err != nil {
+		t.Fatalf("write include source: %v", err)
+	}
+
+	got, err := PreprocessFile(root, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", root, err)
+	}
+
+	if !strings.Contains(got.Text, "value = 11;") {
+		t.Fatalf("expected include with angle brackets to resolve, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_IncludeWithoutSpaceAfterDirective(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	root := filepath.Join(dir, "root.cpp")
+	include := filepath.Join(dir, "inc.hpp")
+
+	rootSource := `#include"inc.hpp"
+#include<inc.hpp>
+class Root {};
+`
+
+	includeSource := `class Inc {};
+`
+
+	if err := os.WriteFile(root, []byte(rootSource), 0o600); err != nil {
+		t.Fatalf("write root source: %v", err)
+	}
+
+	if err := os.WriteFile(include, []byte(includeSource), 0o600); err != nil {
+		t.Fatalf("write include source: %v", err)
+	}
+
+	got, err := PreprocessFile(root, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", root, err)
+	}
+
+	if strings.Count(got.Text, "class Inc {};") != 2 {
+		t.Fatalf("expected include without space to resolve for quote and angle forms, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_IncludeDirectiveTailEmittedAsSeparateLine(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	root := filepath.Join(dir, "root.cpp")
+	include := filepath.Join(dir, "inc.hpp")
+
+	rootSource := `#include "inc.hpp" extra_tail
+class Root {};
+`
+
+	includeSource := `class Inc {};
+`
+
+	if err := os.WriteFile(root, []byte(rootSource), 0o600); err != nil {
+		t.Fatalf("write root source: %v", err)
+	}
+
+	if err := os.WriteFile(include, []byte(includeSource), 0o600); err != nil {
+		t.Fatalf("write include source: %v", err)
+	}
+
+	got, err := PreprocessFile(root, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", root, err)
+	}
+
+	if !strings.Contains(got.Text, "class Inc {};\n extra_tail\nclass Root {};") {
+		t.Fatalf("expected include tail as separate source line after include content, got:\n%s", got.Text)
+	}
+}
+
 func TestPreprocessFile_UnsupportedDirective(t *testing.T) {
 	t.Parallel()
 
@@ -148,6 +246,337 @@ func TestPreprocessFile_UnsupportedDirective(t *testing.T) {
 	_, err := PreprocessFile(file, PreprocessOptions{})
 	if !errors.Is(err, ErrUnsupportedDirective) {
 		t.Fatalf("expected ErrUnsupportedDirective, got %v", err)
+	}
+}
+
+func TestPreprocessFile_IfDirectiveUnsupportedInStrict(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := "#if 1\nclass A {};\n#endif\n"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if !errors.Is(err, ErrUnsupportedDirective) {
+		t.Fatalf("expected ErrUnsupportedDirective for #if in strict mode, got %v", err)
+	}
+
+	found := false
+	for _, diagnostic := range got.Diagnostics {
+		if diagnostic.Code == CodePPUnsupportedDirective {
+			found = true
+
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected %s diagnostic, got: %+v", CodePPUnsupportedDirective, got.Diagnostics)
+	}
+}
+
+func TestPreprocessFile_IfDirectiveEnabledInCompatMode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := "#if 1\nclass A {};\n#endif\n"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{
+		Mode: PreprocessModeCompat,
+	})
+	if err != nil {
+		t.Fatalf("expected #if to be enabled in compat mode, got %v", err)
+	}
+
+	if !strings.Contains(got.Text, "class A {};") {
+		t.Fatalf("expected #if branch output in compat mode, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_ElifDirectiveUnsupportedInStrict(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := "#ifdef A\n#elif 1\nclass B {};\n#endif\n"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if !errors.Is(err, ErrUnsupportedDirective) {
+		t.Fatalf("expected ErrUnsupportedDirective for #elif in strict mode, got %v", err)
+	}
+
+	found := false
+	for _, diagnostic := range got.Diagnostics {
+		if diagnostic.Code == CodePPUnsupportedDirective {
+			found = true
+
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected %s diagnostic, got: %+v", CodePPUnsupportedDirective, got.Diagnostics)
+	}
+}
+
+func TestPreprocessFile_IfDirectiveUnsupportedInsideInactiveIfdef(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := "#ifdef MISSING\n#if 1\nclass A {};\n#endif\n#endif\n"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	_, err := PreprocessFile(file, PreprocessOptions{})
+	if !errors.Is(err, ErrUnsupportedDirective) {
+		t.Fatalf("expected ErrUnsupportedDirective for nested #if in strict mode, got %v", err)
+	}
+}
+
+func TestPreprocessFile_MissingDirectiveMacroName(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		source string
+	}{
+		{name: "undef", source: "#undef\nclass A {};\n"},
+		{name: "ifdef", source: "#ifdef\nclass A {};\n#endif\n"},
+		{name: "ifndef", source: "#ifndef\nclass A {};\n#endif\n"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			file := filepath.Join(dir, "root.cpp")
+			if err := os.WriteFile(file, []byte(tc.source), 0o600); err != nil {
+				t.Fatalf("write temp file: %v", err)
+			}
+
+			got, err := PreprocessFile(file, PreprocessOptions{})
+			if !errors.Is(err, ErrInvalidDirective) {
+				t.Fatalf("expected ErrInvalidDirective, got %v", err)
+			}
+
+			found := false
+			for _, diagnostic := range got.Diagnostics {
+				if diagnostic.Code == CodePPMissingMacroName {
+					found = true
+
+					break
+				}
+			}
+
+			if !found {
+				t.Fatalf("expected %s diagnostic, got: %+v", CodePPMissingMacroName, got.Diagnostics)
+			}
+		})
+	}
+}
+
+func TestPreprocessFile_UnexpectedConditionalDirectives(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name         string
+		source       string
+		expectedCode DiagnosticCode
+	}{
+		{name: "else", source: "#else\nclass A {};\n", expectedCode: CodePPUnexpectedElse},
+		{name: "endif", source: "#endif\nclass A {};\n", expectedCode: CodePPUnexpectedEndif},
+		{name: "elif", source: "#elif 1\nclass A {};\n", expectedCode: CodePPUnsupportedDirective},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			file := filepath.Join(dir, "root.cpp")
+			if err := os.WriteFile(file, []byte(tc.source), 0o600); err != nil {
+				t.Fatalf("write temp file: %v", err)
+			}
+
+			got, err := PreprocessFile(file, PreprocessOptions{})
+			if err == nil {
+				t.Fatalf("expected preprocess error for case %s", tc.name)
+			}
+
+			found := false
+			for _, diagnostic := range got.Diagnostics {
+				if diagnostic.Code == tc.expectedCode {
+					found = true
+
+					break
+				}
+			}
+
+			if !found {
+				t.Fatalf("expected %s diagnostic, got: %+v", tc.expectedCode, got.Diagnostics)
+			}
+		})
+	}
+}
+
+func TestPreprocessFile_IncludeCycle(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	root := filepath.Join(dir, "root.cpp")
+	a := filepath.Join(dir, "a.hpp")
+	b := filepath.Join(dir, "b.hpp")
+
+	if err := os.WriteFile(root, []byte(`#include "a.hpp"`+"\n"), 0o600); err != nil {
+		t.Fatalf("write root source: %v", err)
+	}
+
+	if err := os.WriteFile(a, []byte(`#include "b.hpp"`+"\n"), 0o600); err != nil {
+		t.Fatalf("write include a: %v", err)
+	}
+
+	if err := os.WriteFile(b, []byte(`#include "a.hpp"`+"\n"), 0o600); err != nil {
+		t.Fatalf("write include b: %v", err)
+	}
+
+	_, err := PreprocessFile(root, PreprocessOptions{})
+	if !errors.Is(err, ErrIncludeNotFound) {
+		t.Fatalf("expected ErrIncludeNotFound for include cycle, got %v", err)
+	}
+}
+
+func TestPreprocessFile_MaxIncludeDepthExceeded(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	root := filepath.Join(dir, "root.cpp")
+	one := filepath.Join(dir, "one.hpp")
+	two := filepath.Join(dir, "two.hpp")
+
+	if err := os.WriteFile(root, []byte(`#include "one.hpp"`+"\n"), 0o600); err != nil {
+		t.Fatalf("write root source: %v", err)
+	}
+
+	if err := os.WriteFile(one, []byte(`#include "two.hpp"`+"\n"), 0o600); err != nil {
+		t.Fatalf("write include one: %v", err)
+	}
+
+	if err := os.WriteFile(two, []byte("class TooDeep {};\n"), 0o600); err != nil {
+		t.Fatalf("write include two: %v", err)
+	}
+
+	_, err := PreprocessFile(root, PreprocessOptions{
+		MaxIncludeDepth: 1,
+	})
+	if !errors.Is(err, ErrIncludeNotFound) {
+		t.Fatalf("expected ErrIncludeNotFound for include depth overflow, got %v", err)
+	}
+}
+
+func TestPreprocessFile_DirectiveTailEmission(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := strings.TrimSpace(`
+#define A 1
+#ifdef A A
+class C {};
+#endif 777
+#undef A A
+#ifdef MISSING
+#undef X 999
+#endif
+#ifndef A A
+class End {};
+#else 111
+class Else {};
+#endif
+`) + "\n"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	if !strings.Contains(got.Text, "1\nclass C {};") {
+		t.Fatalf("expected #ifdef tail to be emitted and macro-expanded, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, "\n777\n") {
+		t.Fatalf("expected #endif tail to be emitted after popping frame, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, "\n A\n") && !strings.HasPrefix(got.Text, " A\n") {
+		t.Fatalf("expected #undef tail to be emitted after undef, got:\n%s", got.Text)
+	}
+
+	if strings.Contains(got.Text, "999") {
+		t.Fatalf("did not expect tail from inactive #ifdef branch, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, "class End {};") {
+		t.Fatalf("expected active #ifndef branch body, got:\n%s", got.Text)
+	}
+
+	if strings.Contains(got.Text, "class Else {};") || strings.Contains(got.Text, "111") {
+		t.Fatalf("did not expect inactive #else tail/body, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_DirectiveTailElseActive(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := strings.TrimSpace(`
+#ifdef MISSING
+class A {};
+#else 111
+class B {};
+#endif
+`) + "\n"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	if !strings.Contains(got.Text, "111\nclass B {};") {
+		t.Fatalf("expected #else tail in active else branch, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, "class B {};") {
+		t.Fatalf("expected else branch body, got:\n%s", got.Text)
 	}
 }
 
@@ -213,7 +642,7 @@ class IncB {};
 			hasIncludeEnd = true
 		}
 
-		if entry.Kind == "source" && entry.SourceFile == absInclude {
+		if entry.Kind == "source" && (entry.SourceFile == absInclude || entry.SourceFile == "inc.hpp") {
 			hasIncludeSource = true
 		}
 	}
@@ -266,8 +695,8 @@ func TestPreprocessFile_ConfigDeterministicGoldenHash(t *testing.T) {
 	hash := hex.EncodeToString(sum[:])
 
 	const (
-		expectedHash  = "ff8faade2d79d485e7faaa2599f5aeb2192839210ef469e52f2f5528c08c0511"
-		expectedLines = 598
+		expectedHash  = "93baf439e23fef12e4ec00ffa2eb4a6f52b885df39c2159e221fc902afceb98b"
+		expectedLines = 164
 	)
 
 	if hash != expectedHash {
@@ -300,21 +729,186 @@ class CfgTest
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableMacroRedefinitionWarnings: true,
+	})
 	if err != nil {
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
 
 	needles := []string{
 		"nested[] = {func(1, (2 + 3)), finalValue};",
-		`strPairs[] = {"left,right", "x,y"};`,
+		`strPairs[] = {"leftright", "xy"};`,
 		"emptyLead[] = {, 2};",
 		"emptyTail[] = {1, };",
 	}
 
+	normalized := stripHorizontalWhitespaceTest(got.Text)
+
 	for _, needle := range needles {
-		if !strings.Contains(got.Text, needle) {
+		if !strings.Contains(normalized, stripHorizontalWhitespaceTest(needle)) {
 			t.Fatalf("expected expanded output to contain %q, got:\n%s", needle, got.Text)
+		}
+	}
+}
+
+func TestPreprocessFile_FunctionLikeMacroArgCountMismatch_DropsInvocation(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+#define MAKE(A, B) A + B
+class CfgTest
+{
+	value1 = MAKE(1);
+	value2 = MAKE(1, 2, 3);
+	value3 = MAKE(1,2);
+	value4 = MAKE(1/*x,y*/,2);
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	normalized := stripHorizontalWhitespaceTest(got.Text)
+	needles := []string{
+		"value1=;",
+		"value2=;",
+		"value3=1+2;",
+		"value4=;",
+	}
+
+	for _, needle := range needles {
+		if !strings.Contains(normalized, needle) {
+			t.Fatalf("expected output to contain %q, got:\n%s", needle, got.Text)
+		}
+	}
+}
+
+func TestPreprocessFile_FunctionLikeMacroMalformedCall_DropsInvocation(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+#define M(A,B) A + B
+class CfgTest
+{
+	value1 = M(1;
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("expected malformed macro calls to be tolerated, got %v", err)
+	}
+
+	normalized := stripHorizontalWhitespaceTest(got.Text)
+	if !strings.Contains(normalized, "value1=;") {
+		t.Fatalf("expected malformed invocation to be dropped, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_FunctionLikeMacroMalformedCall_QuotedArg_DropsSemicolon(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := "#define M(ARG) ARG\nvalue1 = M(\"A\\\"B\");"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("expected malformed macro calls to be tolerated, got %v", err)
+	}
+
+	normalized := stripHorizontalWhitespaceTest(got.Text)
+	if !strings.Contains(normalized, "value1=") || strings.Contains(normalized, "value1=;") {
+		t.Fatalf("expected malformed quoted invocation to consume ';', got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_FunctionLikeMacroMalformedTwoArg_DuplicatesFirstArg(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+#define M(A,B) A + B
+class CfgTest
+{
+	value1 = M(1,2;
+	value2 = M(3,4
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("expected malformed two-arg call to be tolerated, got %v", err)
+	}
+
+	normalized := stripHorizontalWhitespaceTest(got.Text)
+	needles := []string{
+		"value1=1+1",
+		"value2=3+3",
+	}
+
+	for _, needle := range needles {
+		if !strings.Contains(normalized, needle) {
+			t.Fatalf("expected output to contain %q, got:\n%s", needle, got.Text)
+		}
+	}
+}
+
+func TestPreprocessFile_FunctionLikeMacroStringArg_CommaRemoved(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+#define M(ARG) ARG
+value1 = M("Some, content");
+value2 = M("A,B,C");
+value3 = "keep,comma";
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	normalized := stripHorizontalWhitespaceTest(got.Text)
+	needles := []string{
+		`value1="Somecontent";`,
+		`value2="ABC";`,
+		`value3="keep,comma";`,
+	}
+
+	for _, needle := range needles {
+		if !strings.Contains(normalized, stripHorizontalWhitespaceTest(needle)) {
+			t.Fatalf("expected output to contain %q, got:\n%s", needle, got.Text)
 		}
 	}
 }
@@ -342,7 +936,9 @@ class CfgTest
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableMacroRedefinitionWarnings: true,
+	})
 	if err != nil {
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
@@ -358,6 +954,117 @@ class CfgTest
 		if !strings.Contains(got.Text, needle) {
 			t.Fatalf("expected token-paste expansion %q, got:\n%s", needle, got.Text)
 		}
+	}
+}
+
+func TestCollapseTokenPaste_OneSidedKeepsIndentation(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "leading_token_paste_keeps_prefix_tabs",
+			in:   "{\t\t##ValueToken",
+			want: "{\t\tValueToken",
+		},
+		{
+			name: "trailing_token_paste_keeps_suffix_tabs",
+			in:   "class Name##\t\t\t{",
+			want: "class Name\t\t\t{",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := collapseTokenPaste(tc.in)
+			if got != tc.want {
+				t.Fatalf("collapseTokenPaste mismatch\ngot:  %q\nwant: %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestTrimSingleMacroBodyDelimiter(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "single space", in: " A##B", want: "A##B"},
+		{name: "single tab", in: "\tA##B", want: "A##B"},
+		{name: "multiple tabs", in: "\t\t\tclass A{}", want: "\t\t\tclass A{}"},
+		{name: "multiple spaces", in: "   class A{}", want: "   class A{}"},
+		{name: "no leading whitespace", in: "A##B", want: "A##B"},
+		{name: "empty", in: "", want: ""},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := trimSingleMacroBodyDelimiter(tc.in)
+			if got != tc.want {
+				t.Fatalf("trimSingleMacroBodyDelimiter(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestShouldConsumeMalformedCallSemicolon(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		in    string
+		want  bool
+		start int
+		end   int
+	}{
+		{
+			name:  "quoted_body_consumes",
+			in:    `x = M("A\"B");`,
+			want:  true,
+			start: strings.Index(`x = M("A\"B");`, "M"),
+			end:   strings.Index(`x = M("A\"B");`, ";"),
+		},
+		{
+			name:  "newline_after_semicolon_consumes",
+			in:    "x = M(1;\n",
+			want:  true,
+			start: strings.Index("x = M(1;\n", "M"),
+			end:   strings.Index("x = M(1;\n", ";"),
+		},
+		{
+			name:  "plain_malformed_keeps_semicolon",
+			in:    "x = M(1;",
+			want:  false,
+			start: strings.Index("x = M(1;", "M"),
+			end:   strings.Index("x = M(1;", ";"),
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := shouldConsumeMalformedCallSemicolon(tc.in, tc.start, "M", tc.end)
+			if got != tc.want {
+				t.Fatalf("want consume=%v, got %v for %q", tc.want, got, tc.in)
+			}
+		})
 	}
 }
 
@@ -381,7 +1088,9 @@ class CfgTest
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableMacroRedefinitionWarnings: true,
+	})
 	if err != nil {
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
@@ -414,7 +1123,9 @@ DECL(Foo)
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableMacroRedefinitionWarnings: true,
+	})
 	if err != nil {
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
@@ -430,7 +1141,51 @@ DECL(Foo)
 	}
 }
 
-func TestPreprocessFile_UnresolvedMacroLikeInvocation(t *testing.T) {
+func TestPreprocessFile_StringifyTokenPasteCfgConvertStyle(t *testing.T) {
+	t.Parallel()
+
+	path := testDataPath("preproc", "stringify_tokenpaste", "input.cpp")
+	got, err := PreprocessFile(path, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", path, err)
+	}
+
+	if !strings.Contains(got.Text, `displayName = "$##Warpbox##_##  CardboardBox##_name";`) {
+		t.Fatalf("expected CfgConvert-style stringify+paste result for displayName, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `damageMat = "Warpbox/assets/data/testbox##_damage.rvmat";`) {
+		t.Fatalf("expected CfgConvert-style BASE##_damage preservation in string, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_TokenPasteOutputStaysParseable(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := strings.TrimSpace(`
+#define MOD_PREFIX Warpbox
+#define CFG_CAT_INNER(A, B) A##B
+#define CFG_CAT(A, B) CFG_CAT_INNER(A, B)
+class CFG_CAT(MOD_PREFIX, _Data) {};
+`) + "\n"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile default mode error: %v", err)
+	}
+
+	if !strings.Contains(got.Text, `class Warpbox_Data {};`) {
+		t.Fatalf("expected parseable default token-paste output, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_UnresolvedMacroLikeInvocation_PreservedInStrictMode(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -446,28 +1201,19 @@ class CfgTest
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
-	if !errors.Is(err, ErrUnresolvedMacroInvocation) {
-		t.Fatalf("expected ErrUnresolvedMacroInvocation, got %v", err)
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableMacroRedefinitionWarnings: true,
+	})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
 
-	found := false
-	for _, diagnostic := range got.Diagnostics {
-		if diagnostic.Code != CodePPUnresolvedMacroInvocation {
-			continue
-		}
-
-		found = true
-
-		break
-	}
-
-	if !found {
-		t.Fatalf("expected %s diagnostic, got: %+v", CodePPUnresolvedMacroInvocation, got.Diagnostics)
+	if !strings.Contains(got.Text, `HL_FROM_BASE("bagpack")`) {
+		t.Fatalf("expected unresolved macro call to remain untouched in strict mode, got:\n%s", got.Text)
 	}
 }
 
-func TestPreprocessFile_UnresolvedMacroDetectionIgnoresStringsAndComments(t *testing.T) {
+func TestPreprocessFile_UnresolvedMacroLikeInvocation_IgnoresStringsAndComments(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -493,6 +1239,40 @@ class CfgTest
 	}
 }
 
+func TestPreprocessFile_FunctionLikeMacro_DoesNotExpandInStringsOrComments(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+#define F(X) X
+class CfgTest
+{
+	value = F(7);
+	text = "F(123)";
+	// F(456)
+	/* F(789) */
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	if !strings.Contains(got.Text, "value = 7;") {
+		t.Fatalf("expected function-like macro expansion in code, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `text = "F(123)";`) {
+		t.Fatalf("expected string literal macro-like text untouched, got:\n%s", got.Text)
+	}
+}
+
 func TestPreprocessFile_MacroRedefinedWarningDedup(t *testing.T) {
 	t.Parallel()
 
@@ -509,7 +1289,9 @@ class CfgTest {};
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableMacroRedefinitionWarnings: true,
+	})
 	if err != nil {
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
@@ -545,7 +1327,9 @@ class CfgTest {};
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableMacroRedefinitionWarnings: true,
+	})
 	if err != nil {
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
@@ -630,7 +1414,7 @@ healthLevels[] = HL_FROM_BASE("bagpack");
 	}
 }
 
-func TestPreprocessFile_ExecEval_DefaultUnsupported(t *testing.T) {
+func TestPreprocessFile_ExecEval_DefaultPreserved(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -649,9 +1433,13 @@ class CfgTest
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	_, err := PreprocessFile(file, PreprocessOptions{})
-	if !errors.Is(err, ErrUnsupportedIntrinsic) {
-		t.Fatalf("expected ErrUnsupportedIntrinsic, got %v", err)
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	if !strings.Contains(got.Text, "value = __EVAL(1+2);") {
+		t.Fatalf("expected __EVAL to stay untouched in strict mode, got:\n%s", got.Text)
 	}
 }
 
@@ -722,6 +1510,815 @@ class CfgExecEval
 	}
 }
 
+func TestPreprocessFile_ExecEval_EnabledByCompatMode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgExecEval
+{
+	class Root
+	{
+		__EXEC(testVar = 7)
+		value = __EVAL(testVar + 5);
+	};
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{
+		Mode: PreprocessModeCompat,
+	})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	if !strings.Contains(got.Text, "value = 12;") {
+		t.Fatalf("expected __EVAL(testVar + 5) to be 12 in compat mode, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_PathNorm_DefaultPreserved(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgPathNorm
+{
+	class Root
+	{
+		path = __PATH_NORM("a/b\\c//d");
+	};
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	if !strings.Contains(got.Text, `path = __PATH_NORM("a/b\\c//d");`) {
+		t.Fatalf("expected __PATH_NORM to stay untouched in strict mode, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_PathNorm_EnabledByExtendedMode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgPathNorm
+{
+	class Root
+	{
+		pathA = __PATH_NORM("a/b\\c//d");
+		__EXEC(base = "mods/demo")
+		pathB = __PATH_NORM(base + "/assets\\data//x.paa");
+	};
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	if strings.Contains(got.Text, "__PATH_NORM(") {
+		t.Fatalf("expected __PATH_NORM to be expanded in extended mode, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `pathA = "a\b\c\d";`) {
+		t.Fatalf("expected pathA normalization, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `pathB = "mods\demo\assets\data\x.paa";`) {
+		t.Fatalf("expected pathB normalization with __EXEC variable, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_StringIntrinsics_DefaultPreserved(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgStr
+{
+	class Root
+	{
+		v1 = __STR_TRIM("  x  ");
+		v2 = __STR_LOWER("AB");
+		v3 = __STR_UPPER("ab");
+		v4 = __STR_REPLACE("a/b", "/", "\\");
+		v5 = __STR_JOIN("_", "a", "b");
+		v6 = __STR_QUOTE("demo");
+		v7 = __STR_SPLIT("a_b_c", "_", 1);
+		v8 = __STR_PASCAL("hello-world_demo x");
+		v9 = __STR_CAMEL("hello-world_demo x");
+		v10 = __STR_SNAKE("HelloWorld Demo");
+		v11 = __STR_CONST("HelloWorld Demo");
+		v12 = __FILES_JOIN("sounds/*.ogg", "|");
+		v13 = __FILES_COUNT("sounds/*.ogg");
+		v14 = __FILES_GET("sounds/*.ogg", 0);
+		v15 = __FILES_RENDER("sounds/*.ogg", "X:{stem}");
+		v16 = __FOR_RANGE_RENDER(1, 3, "{index}:{value}", "|");
+		v17 = __FOR_EACH_RENDER("{index}:{value}", "|", "a", "b");
+	};
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	needles := []string{
+		`v1 = __STR_TRIM("  x  ");`,
+		`v2 = __STR_LOWER("AB");`,
+		`v3 = __STR_UPPER("ab");`,
+		`v4 = __STR_REPLACE("a/b", "/", "\\");`,
+		`v5 = __STR_JOIN("_", "a", "b");`,
+		`v6 = __STR_QUOTE("demo");`,
+		`v7 = __STR_SPLIT("a_b_c", "_", 1);`,
+		`v8 = __STR_PASCAL("hello-world_demo x");`,
+		`v9 = __STR_CAMEL("hello-world_demo x");`,
+		`v10 = __STR_SNAKE("HelloWorld Demo");`,
+		`v11 = __STR_CONST("HelloWorld Demo");`,
+		`v12 = __FILES_JOIN("sounds/*.ogg", "|");`,
+		`v13 = __FILES_COUNT("sounds/*.ogg");`,
+		`v14 = __FILES_GET("sounds/*.ogg", 0);`,
+		`v15 = __FILES_RENDER("sounds/*.ogg", "X:{stem}");`,
+		`v16 = __FOR_RANGE_RENDER(1, 3, "{index}:{value}", "|");`,
+		`v17 = __FOR_EACH_RENDER("{index}:{value}", "|", "a", "b");`,
+	}
+
+	for _, needle := range needles {
+		if !strings.Contains(got.Text, needle) {
+			t.Fatalf("expected strict mode to keep %q unchanged, got:\n%s", needle, got.Text)
+		}
+	}
+}
+
+func TestPreprocessFile_StringIntrinsics_EnabledByExtendedMode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgStr
+{
+	class Root
+	{
+		__EXEC(base = "Mods/DEMO"; suffix = "x"; item1 = "mods"; item2 = "demo")
+		trimmed = __STR_TRIM("  Mods/DEMO  ");
+		lower = __STR_LOWER(base);
+		upper = __STR_UPPER("abC");
+		replaced = __STR_REPLACE("a/b/c", "/", "\\");
+		joined = __STR_JOIN("\\", item1, item2, "assets", suffix);
+		quoted = __STR_QUOTE(base + "/" + suffix);
+		split1 = __STR_SPLIT("a_b_c", "_", 1);
+		split9 = __STR_SPLIT("a_b_c", "_", 9);
+		pascal = __STR_PASCAL("hello-world_demo x");
+		camel = __STR_CAMEL("hello-world_demo x");
+		snake = __STR_SNAKE("HelloWorld Demo");
+		constv = __STR_CONST("HelloWorld Demo");
+		count = __FILES_COUNT("sounds/*.ogg");
+		first = __FILES_GET("sounds/*.ogg", 0);
+		missing = __FILES_GET("sounds/*.ogg", 9);
+	};
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	needles := []string{
+		`trimmed = "Mods/DEMO";`,
+		`lower = "mods/demo";`,
+		`upper = "ABC";`,
+		`replaced = "a\\b\\c";`,
+		`joined = "mods\\demo\\assets\\x";`,
+		`quoted = "Mods/DEMO/x";`,
+		`split1 = "b";`,
+		`split9 = "";`,
+		`pascal = "HelloWorldDemoX";`,
+		`camel = "helloWorldDemoX";`,
+		`snake = "hello_world_demo";`,
+		`constv = "HELLO_WORLD_DEMO";`,
+		`count = 0;`,
+		`first = "";`,
+		`missing = "";`,
+	}
+
+	for _, needle := range needles {
+		if !strings.Contains(got.Text, needle) {
+			t.Fatalf("expected extended mode output to contain %q, got:\n%s", needle, got.Text)
+		}
+	}
+}
+
+func TestPreprocessFile_StringIntrinsics_InvalidArguments(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgStr
+{
+	class Root
+	{
+		v = __STR_REPLACE("a", "b");
+	};
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	_, err := PreprocessFile(file, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for invalid __STR_REPLACE call, got %v", err)
+	}
+}
+
+func TestPreprocessFile_StringIntrinsics_SplitInvalidIndex(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgStr
+{
+	class Root
+	{
+		v = __STR_SPLIT("a_b_c", "_", -1);
+	};
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	_, err := PreprocessFile(file, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for invalid __STR_SPLIT index, got %v", err)
+	}
+}
+
+func TestPreprocessFile_StringIntrinsics_InvalidTemplateFilter(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "sounds"), 0o700); err != nil {
+		t.Fatalf("mkdir sounds: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "sounds", "a.ogg"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	file := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgStr
+{
+	class Root
+	{
+		v = __FILES_RENDER("sounds/*.ogg", "{stem|nope}", "|");
+	};
+};
+`
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	_, err := PreprocessFile(file, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for invalid template filter, got %v", err)
+	}
+}
+
+func TestPreprocessFile_FilesJoin_EnabledByExtendedMode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "sounds"), 0o700); err != nil {
+		t.Fatalf("mkdir sounds: %v", err)
+	}
+
+	files := []string{
+		filepath.Join(dir, "sounds", "b.ogg"),
+		filepath.Join(dir, "sounds", "a.ogg"),
+		filepath.Join(dir, "sounds", "ignore.txt"),
+	}
+
+	for _, filePath := range files {
+		if err := os.WriteFile(filePath, []byte("x"), 0o600); err != nil {
+			t.Fatalf("write fixture file %s: %v", filePath, err)
+		}
+	}
+
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgFiles
+{
+	class Root
+	{
+		filesPipe = __FILES_JOIN("sounds/*.ogg", "|");
+		filesDefault = __FILES_JOIN("sounds/*.ogg");
+		filesCount = __FILES_COUNT("sounds/*.ogg");
+		firstFile = __FILES_GET("sounds/*.ogg", 0);
+		missingFile = __FILES_GET("sounds/*.ogg", 99);
+		filesRender = __FILES_RENDER("sounds/*.ogg", "{index}:{stem}={path}", "|");
+		filesRenderFiltered = __FILES_RENDER("sounds/*.ogg", "{index}:{stem|pascal}:{stem|snake}:{stem|const}={path|lower|replace(sounds, sfx)}", "|");
+		filesRenderClass = __FILES_RENDER("sounds/*.ogg", "class Snd_{index} { path = {path|lower}; };", "\n");
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	got, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", sourcePath, err)
+	}
+
+	if !strings.Contains(got.Text, `filesPipe = "sounds\a.ogg|sounds\b.ogg";`) {
+		t.Fatalf("expected sorted and joined file list for filesPipe, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `filesDefault = "sounds\a.ogg;sounds\b.ogg";`) {
+		t.Fatalf("expected default ';' delimiter for filesDefault, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `filesCount = 2;`) {
+		t.Fatalf("expected filesCount=2, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `firstFile = "sounds\a.ogg";`) {
+		t.Fatalf("expected firstFile with sorted index 0, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `missingFile = "";`) {
+		t.Fatalf("expected missingFile to be empty string, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `filesRender = 0:a=sounds\a.ogg|1:b=sounds\b.ogg;`) {
+		t.Fatalf("expected filesRender template output, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(
+		got.Text,
+		`filesRenderFiltered = 0:A:a:A=sfx\a.ogg|1:B:b:B=sfx\b.ogg;`,
+	) {
+		t.Fatalf("expected filesRenderFiltered template output, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `class Snd_0 { path = sounds\a.ogg; };`) ||
+		!strings.Contains(got.Text, `class Snd_1 { path = sounds\b.ogg; };`) {
+		t.Fatalf("expected class-style template rendering with literal braces, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_FilesJoin_MaxItemsExceeded(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "sounds"), 0o700); err != nil {
+		t.Fatalf("mkdir sounds: %v", err)
+	}
+
+	for _, name := range []string{"a.ogg", "b.ogg"} {
+		if err := os.WriteFile(filepath.Join(dir, "sounds", name), []byte("x"), 0o600); err != nil {
+			t.Fatalf("write fixture file %s: %v", name, err)
+		}
+	}
+
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgFiles
+{
+	class Root
+	{
+		filesPipe = __FILES_JOIN("sounds/*.ogg", "|");
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	_, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode:               PreprocessModeExtended,
+		ExtendedFSMaxItems: 1,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic when files exceed limit, got %v", err)
+	}
+}
+
+func TestPreprocessFile_FilesJoin_RootRestriction(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	allowedRoot := filepath.Join(dir, "allowed")
+	outsideDir := filepath.Join(dir, "outside")
+	if err := os.MkdirAll(filepath.Join(allowedRoot, "sounds"), 0o700); err != nil {
+		t.Fatalf("mkdir allowed sounds: %v", err)
+	}
+
+	if err := os.MkdirAll(outsideDir, 0o700); err != nil {
+		t.Fatalf("mkdir outside: %v", err)
+	}
+
+	outsideFile := filepath.Join(outsideDir, "x.ogg")
+	if err := os.WriteFile(outsideFile, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write outside fixture: %v", err)
+	}
+
+	sourcePath := filepath.Join(allowedRoot, "root.cpp")
+	source := `
+class CfgFiles
+{
+	class Root
+	{
+		files = __FILES_JOIN("` + normalizePathSlashes(outsideFile) + `", "|");
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	_, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode:           PreprocessModeExtended,
+		ExtendedFSRoot: allowedRoot,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for outside root file glob, got %v", err)
+	}
+}
+
+func TestPreprocessFile_FilesGet_InvalidIndex(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "sounds"), 0o700); err != nil {
+		t.Fatalf("mkdir sounds: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "sounds", "a.ogg"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgFiles
+{
+	class Root
+	{
+		file = __FILES_GET("sounds/*.ogg", -1);
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	_, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for invalid __FILES_GET index, got %v", err)
+	}
+}
+
+func TestPreprocessFile_FilesRender_InvalidArguments(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgFiles
+{
+	class Root
+	{
+		file = __FILES_RENDER("sounds/*.ogg");
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	_, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for invalid __FILES_RENDER args, got %v", err)
+	}
+}
+
+func TestPreprocessFile_ForRangeRender_EnabledByExtendedMode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgForRange
+{
+	class Root
+	{
+		asc = __FOR_RANGE_RENDER(1, 3, "A{index}:{value}", "|");
+		desc = __FOR_RANGE_RENDER(3, 1, "{value}", ",");
+		pascal = __FOR_RANGE_RENDER(1, 3, "{value|pascal}", "|");
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	got, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", sourcePath, err)
+	}
+
+	if !strings.Contains(got.Text, `asc = A0:1|A1:2|A2:3;`) {
+		t.Fatalf("expected ascending __FOR_RANGE_RENDER output, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `desc = 3,2,1;`) {
+		t.Fatalf("expected descending __FOR_RANGE_RENDER output, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `pascal = 1|2|3;`) {
+		t.Fatalf("expected filtered __FOR_RANGE_RENDER output, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_ForRangeRender_InvalidArguments(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgForRange
+{
+	class Root
+	{
+		asc = __FOR_RANGE_RENDER(1, 3);
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	_, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for invalid __FOR_RANGE_RENDER args, got %v", err)
+	}
+}
+
+func TestPreprocessFile_ForRangeRender_MaxItemsExceeded(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgForRange
+{
+	class Root
+	{
+		asc = __FOR_RANGE_RENDER(1, 5, "{value}", "|");
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	_, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode:                 PreprocessModeExtended,
+		ExtendedLoopMaxItems: 3,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for __FOR_RANGE_RENDER loop limit, got %v", err)
+	}
+}
+
+func TestPreprocessFile_ForEachRender_EnabledByExtendedMode(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgForEach
+{
+	class Root
+	{
+		__EXEC(a = "alpha"; b = "beta")
+		items = __FOR_EACH_RENDER("{index}:{value}", "|", a, b, "gamma");
+		itemsFiltered = __FOR_EACH_RENDER("{index}:{value|upper|replace(A, X)}", "|", a, b);
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	got, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", sourcePath, err)
+	}
+
+	if !strings.Contains(got.Text, `items = 0:alpha|1:beta|2:gamma;`) {
+		t.Fatalf("expected __FOR_EACH_RENDER output, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `itemsFiltered = 0:XLPHX|1:BETX;`) {
+		t.Fatalf("expected filtered __FOR_EACH_RENDER output, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_ForEachRender_InvalidArguments(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgForEach
+{
+	class Root
+	{
+		items = __FOR_EACH_RENDER("{value}", "|");
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	_, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode: PreprocessModeExtended,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for invalid __FOR_EACH_RENDER args, got %v", err)
+	}
+}
+
+func TestPreprocessFile_ForEachRender_MaxItemsExceeded(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "root.cpp")
+	source := `
+class CfgForEach
+{
+	class Root
+	{
+		items = __FOR_EACH_RENDER("{value}", "|", "a", "b", "c");
+	};
+};
+`
+
+	if err := os.WriteFile(sourcePath, []byte(source), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	_, err := PreprocessFile(sourcePath, PreprocessOptions{
+		Mode:                 PreprocessModeExtended,
+		ExtendedLoopMaxItems: 2,
+	})
+	if !errors.Is(err, ErrUnsupportedIntrinsic) {
+		t.Fatalf("expected ErrUnsupportedIntrinsic for __FOR_EACH_RENDER loop limit, got %v", err)
+	}
+}
+
+func TestParseIntrinsicArgs(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		input   string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name:  "simple_three",
+			input: `"a", "b", "c"`,
+			want:  []string{`"a"`, `"b"`, `"c"`},
+		},
+		{
+			name:  "nested_parentheses",
+			input: `base + (1 + 2), "b"`,
+			want:  []string{`base + (1 + 2)`, `"b"`},
+		},
+		{
+			name:  "comma_inside_string",
+			input: `"a,b", "c"`,
+			want:  []string{`"a,b"`, `"c"`},
+		},
+		{
+			name:    "unterminated_string",
+			input:   `"a, "b"`,
+			wantErr: true,
+		},
+		{
+			name:    "unexpected_close_paren",
+			input:   `a), b`,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseIntrinsicArgs(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected parse error for input %q", tc.input)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("parseIntrinsicArgs(%q): %v", tc.input, err)
+			}
+
+			if len(got) != len(tc.want) {
+				t.Fatalf("parseIntrinsicArgs(%q) len mismatch: got=%d want=%d", tc.input, len(got), len(tc.want))
+			}
+
+			for idx := range tc.want {
+				if got[idx] != tc.want[idx] {
+					t.Fatalf("parseIntrinsicArgs(%q)[%d]=%q want %q", tc.input, idx, got[idx], tc.want[idx])
+				}
+			}
+		})
+	}
+}
+
 func TestPreprocessFile_ExecEval_UnknownIdentifierFallback(t *testing.T) {
 	t.Parallel()
 
@@ -779,28 +2376,28 @@ class CfgBuiltins
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
 
-	if !strings.Contains(got.Text, "lineValue = 3;") {
-		t.Fatalf("expected __LINE__ to resolve to source line 3, got:\n%s", got.Text)
+	if !strings.Contains(got.Text, "lineValue = 2;") {
+		t.Fatalf("expected __LINE__ to resolve with DayZ-style 0-based index, got:\n%s", got.Text)
 	}
 
 	if !strings.Contains(got.Text, "fileValue = "+quoteIntrinsicString(file)+";") {
 		t.Fatalf("expected __FILE__ to resolve to current file path, got:\n%s", got.Text)
 	}
 
-	if !strings.Contains(got.Text, `fileNameValue = "root.cpp";`) {
-		t.Fatalf("expected __FILE_NAME__ to be root.cpp, got:\n%s", got.Text)
+	if !strings.Contains(got.Text, `fileNameValue = __FILE_NAME__;`) {
+		t.Fatalf("expected __FILE_NAME__ to stay untouched in strict mode, got:\n%s", got.Text)
 	}
 
-	if !strings.Contains(got.Text, `fileShortValue = "root";`) {
-		t.Fatalf("expected __FILE_SHORT__ to be root, got:\n%s", got.Text)
+	if !strings.Contains(got.Text, `fileShortValue = __FILE_SHORT__;`) {
+		t.Fatalf("expected __FILE_SHORT__ to stay untouched in strict mode, got:\n%s", got.Text)
 	}
 
 	if !strings.Contains(got.Text, `stringLiteral = "__LINE__";`) {
 		t.Fatalf("expected builtin in string literal to stay untouched, got:\n%s", got.Text)
 	}
 
-	if !strings.Contains(got.Text, "// __FILE__") {
-		t.Fatalf("expected builtin in comment to stay untouched, got:\n%s", got.Text)
+	if strings.Contains(got.Text, "// __FILE__") {
+		t.Fatalf("expected comments to be removed by preprocessor, got:\n%s", got.Text)
 	}
 }
 
@@ -819,6 +2416,7 @@ class Root {};
 	includeSource := strings.TrimSpace(`
 class Included
 {
+	fileValue = __FILE__;
 	lineValue = __LINE__;
 	fileNameValue = __FILE_NAME__;
 	fileShortValue = __FILE_SHORT__;
@@ -839,15 +2437,52 @@ class Included
 	}
 
 	if !strings.Contains(got.Text, "lineValue = 3;") {
-		t.Fatalf("expected __LINE__ in include to resolve in include context, got:\n%s", got.Text)
+		t.Fatalf("expected __LINE__ in include to resolve with DayZ-style 0-based index, got:\n%s", got.Text)
 	}
 
-	if !strings.Contains(got.Text, `fileNameValue = "inc.hpp";`) {
-		t.Fatalf("expected __FILE_NAME__ in include to be inc.hpp, got:\n%s", got.Text)
+	if !strings.Contains(got.Text, `fileValue = "inc.hpp";`) {
+		t.Fatalf("expected __FILE__ in include to use include literal path, got:\n%s", got.Text)
 	}
 
-	if !strings.Contains(got.Text, `fileShortValue = "inc";`) {
-		t.Fatalf("expected __FILE_SHORT__ in include to be inc, got:\n%s", got.Text)
+	if !strings.Contains(got.Text, `fileNameValue = __FILE_NAME__;`) {
+		t.Fatalf("expected __FILE_NAME__ in include to stay untouched in strict mode, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `fileShortValue = __FILE_SHORT__;`) {
+		t.Fatalf("expected __FILE_SHORT__ in include to stay untouched in strict mode, got:\n%s", got.Text)
+	}
+}
+
+func TestPreprocessFile_BuiltInIntrinsics_FileNameEnabled(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "root.cpp")
+	source := strings.TrimSpace(`
+class CfgBuiltins
+{
+	fileNameValue = __FILE_NAME__;
+	fileShortValue = __FILE_SHORT__;
+};
+`) + "\n"
+
+	if err := os.WriteFile(file, []byte(source), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableFileNameIntrinsics: true,
+	})
+	if err != nil {
+		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
+	}
+
+	if !strings.Contains(got.Text, `fileNameValue = "root.cpp";`) {
+		t.Fatalf("expected __FILE_NAME__ to expand when enabled, got:\n%s", got.Text)
+	}
+
+	if !strings.Contains(got.Text, `fileShortValue = "root";`) {
+		t.Fatalf("expected __FILE_SHORT__ to expand when enabled, got:\n%s", got.Text)
 	}
 }
 
@@ -978,7 +2613,9 @@ class VersionAndDefined {};
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableIfExpressions: true,
+	})
 	if err != nil {
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
@@ -1015,7 +2652,9 @@ class ShouldAppear {};
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableIfExpressions: true,
+	})
 	if err != nil {
 		t.Fatalf("PreprocessFile(%s) error: %v", file, err)
 	}
@@ -1044,7 +2683,9 @@ class ShouldNotParse {};
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	got, err := PreprocessFile(file, PreprocessOptions{})
+	got, err := PreprocessFile(file, PreprocessOptions{
+		EnableIfExpressions: true,
+	})
 	if !errors.Is(err, ErrUnsupportedIntrinsic) {
 		t.Fatalf("expected ErrUnsupportedIntrinsic for __has_include, got %v", err)
 	}
@@ -1113,4 +2754,11 @@ func assertDynamicUintPresent(t *testing.T, text string, name string) {
 	if !regexp.MustCompile(name + ` = \d+;`).MatchString(text) {
 		t.Fatalf("expected %s numeric assignment, got:\n%s", name, text)
 	}
+}
+
+func stripHorizontalWhitespaceTest(text string) string {
+	text = strings.ReplaceAll(text, " ", "")
+	text = strings.ReplaceAll(text, "\t", "")
+
+	return text
 }

@@ -58,3 +58,4 @@
 | `PP015` | **warning** | macro redefinition                                 |
 | `PP016` | **error**   | unresolved macro-like invocation                   |
 | `PP017` | **error**   | unsupported __has_include in conditional directive |
+

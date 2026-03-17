@@ -50,6 +50,21 @@ func BenchmarkParseVehicleConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkParseVehicleConfigParseOnly(b *testing.B) {
+	data := benchLargeConfigData(b)
+	tokens := benchLargeConfigTokens(b, data)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err := ParseTokens("bench-large.cpp", data, tokens, ParseOptions{})
+		if err != nil {
+			b.Fatalf("ParseTokens benchmark error: %v", err)
+		}
+	}
+}
+
 func BenchmarkParseVehicleConfigWithRaw(b *testing.B) {
 	data := benchLargeConfigData(b)
 	opts := ParseOptions{
@@ -63,6 +78,24 @@ func BenchmarkParseVehicleConfigWithRaw(b *testing.B) {
 		_, err := ParseBytes("bench-large.cpp", data, opts)
 		if err != nil {
 			b.Fatalf("ParseBytes benchmark error: %v", err)
+		}
+	}
+}
+
+func BenchmarkParseVehicleConfigWithRawParseOnly(b *testing.B) {
+	data := benchLargeConfigData(b)
+	tokens := benchLargeConfigTokens(b, data)
+	opts := ParseOptions{
+		CaptureScalarRaw: true,
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err := ParseTokens("bench-large.cpp", data, tokens, opts)
+		if err != nil {
+			b.Fatalf("ParseTokens benchmark error: %v", err)
 		}
 	}
 }
@@ -134,6 +167,24 @@ func benchLargeConfigData(b *testing.B) []byte {
 	out.WriteString("};\n")
 
 	return []byte(out.String())
+}
+
+// benchLargeConfigTokens lexes benchmark config once for parse-only benchmarks.
+func benchLargeConfigTokens(b *testing.B, data []byte) []Token {
+	b.Helper()
+
+	tokens, diagnostics, err := LexBytes("bench-large.cpp", data)
+	if err != nil {
+		b.Fatalf("LexBytes benchmark setup error: %v", err)
+	}
+
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == SeverityError {
+			b.Fatalf("LexBytes benchmark setup diagnostic: %s", diagnostic.Error())
+		}
+	}
+
+	return tokens
 }
 
 // benchIncludeFixtureRoot creates include-heavy preprocess fixture in benchmark temp directory.

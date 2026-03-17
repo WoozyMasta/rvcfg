@@ -96,23 +96,35 @@ func ParseBytes(filename string, data []byte, opts ParseOptions) (ParseResult, e
 	}
 
 	tokens, lexDiagnostics, lexErr := LexBytesWithOptions(filename, data, lexOpts)
+	parseResult, parseErr := ParseTokens(filename, data, tokens, opts)
+	diagnostics := make([]Diagnostic, 0, len(lexDiagnostics)+len(parseResult.Diagnostics))
+	diagnostics = append(diagnostics, lexDiagnostics...)
+	diagnostics = append(diagnostics, parseResult.Diagnostics...)
+
+	parseResult.Diagnostics = diagnostics
+
+	if lexErr != nil {
+		return parseResult, lexErr
+	}
+
+	if parseErr != nil {
+		return parseResult, parseErr
+	}
+
+	return parseResult, nil
+}
+
+// ParseTokens parses pre-tokenized source into AST without lexer stage.
+func ParseTokens(filename string, data []byte, tokens []Token, opts ParseOptions) (ParseResult, error) {
 	p := newParser(tokens, data, opts)
 	file := p.parseFile(filename)
 
-	diagnostics := make([]Diagnostic, 0, len(lexDiagnostics)+len(p.diagnostics))
-	diagnostics = append(diagnostics, lexDiagnostics...)
-	diagnostics = append(diagnostics, p.diagnostics...)
-
 	result := ParseResult{
 		File:        file,
-		Diagnostics: diagnostics,
+		Diagnostics: p.diagnostics,
 	}
 
-	if lexErr != nil {
-		return result, lexErr
-	}
-
-	for _, d := range diagnostics {
+	for _, d := range p.diagnostics {
 		if d.Severity == SeverityError {
 			return result, ErrParse
 		}

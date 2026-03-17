@@ -46,13 +46,17 @@ func splitDirective(line string) (string, string) {
 		return "", ""
 	}
 
-	parts := strings.Fields(trimmed)
-	if len(parts) == 1 {
-		return parts[0], ""
+	nameEnd := 0
+	for nameEnd < len(trimmed) && isDirectiveNameChar(trimmed[nameEnd]) {
+		nameEnd++
 	}
 
-	name := parts[0]
-	arg := strings.TrimSpace(trimmed[len(name):])
+	if nameEnd == 0 {
+		return "", ""
+	}
+
+	name := trimmed[:nameEnd]
+	arg := strings.TrimLeft(trimmed[nameEnd:], " \t")
 
 	return name, arg
 }
@@ -67,14 +71,78 @@ func isConditionalDirective(name string) bool {
 	}
 }
 
-// parseQuotedInclude extracts "file" from include argument.
-func parseQuotedInclude(arg string) (string, error) {
-	arg = strings.TrimSpace(arg)
-	if len(arg) < 2 || arg[0] != '"' || arg[len(arg)-1] != '"' {
-		return "", fmt.Errorf("invalid #include path %q", arg)
+// parseIncludePathWithTail extracts include path and raw tail after include path.
+func parseIncludePathWithTail(arg string) (string, string, error) {
+	arg = strings.TrimLeft(arg, " \t")
+	if len(arg) < 2 {
+		return "", "", fmt.Errorf("invalid #include path %q", arg)
 	}
 
-	return arg[1 : len(arg)-1], nil
+	var (
+		delimStart byte
+		delimEnd   byte
+	)
+
+	switch arg[0] {
+	case '"':
+		delimStart = '"'
+		delimEnd = '"'
+	case '<':
+		delimStart = '<'
+		delimEnd = '>'
+	default:
+		return "", "", fmt.Errorf("invalid #include path %q", arg)
+	}
+
+	endIdx := -1
+	for idx := 1; idx < len(arg); idx++ {
+		if arg[idx] == delimEnd {
+			endIdx = idx
+			break
+		}
+	}
+
+	if endIdx < 0 || arg[0] != delimStart {
+		return "", "", fmt.Errorf("invalid #include path %q", arg)
+	}
+
+	path := arg[1:endIdx]
+	tail := arg[endIdx+1:]
+	tail, _ = stripComments(tail, false)
+
+	return path, tail, nil
+}
+
+// splitDirectiveHeadTail splits first argument token and raw trailing suffix.
+func splitDirectiveHeadTail(arg string) (string, string) {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return "", ""
+	}
+
+	idx := 0
+	for idx < len(arg) && !isWhitespace(arg[idx]) {
+		idx++
+	}
+
+	return arg[:idx], arg[idx:]
+}
+
+// isWhitespace reports whether byte is ASCII whitespace.
+func isWhitespace(ch byte) bool {
+	switch ch {
+	case ' ', '\t', '\r', '\n':
+		return true
+	default:
+		return false
+	}
+}
+
+// isDirectiveNameChar reports whether byte is valid directive name character.
+func isDirectiveNameChar(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') ||
+		(ch >= 'A' && ch <= 'Z') ||
+		(ch == '_')
 }
 
 // fileExists checks whether path exists and is file.
@@ -85,4 +153,80 @@ func fileExists(path string) bool {
 	}
 
 	return !info.IsDir()
+}
+
+// stripComments removes // and /* */ comments while preserving string literals.
+// It keeps block-comment state to support comments spanning multiple lines.
+func stripComments(line string, inBlockComment bool) (string, bool) {
+	if line == "" {
+		return line, inBlockComment
+	}
+
+	if inBlockComment && !strings.Contains(line, "*/") {
+		return "", true
+	}
+
+	if !inBlockComment {
+		if !strings.Contains(line, "/") {
+			return line, false
+		}
+
+		if !strings.Contains(line, "//") && !strings.Contains(line, "/*") {
+			return line, false
+		}
+	}
+
+	var out strings.Builder
+	out.Grow(len(line))
+	inString := false
+
+	for i := 0; i < len(line); {
+		if inBlockComment {
+			if i+1 < len(line) && line[i] == '*' && line[i+1] == '/' {
+				inBlockComment = false
+				i += 2
+
+				continue
+			}
+
+			i++
+
+			continue
+		}
+
+		if inString {
+			out.WriteByte(line[i])
+			if line[i] == '"' {
+				inString = false
+			}
+
+			i++
+
+			continue
+		}
+
+		if line[i] == '"' {
+			inString = true
+			out.WriteByte(line[i])
+			i++
+
+			continue
+		}
+
+		if i+1 < len(line) && line[i] == '/' && line[i+1] == '/' {
+			break
+		}
+
+		if i+1 < len(line) && line[i] == '/' && line[i+1] == '*' {
+			inBlockComment = true
+			i += 2
+
+			continue
+		}
+
+		out.WriteByte(line[i])
+		i++
+	}
+
+	return out.String(), inBlockComment
 }

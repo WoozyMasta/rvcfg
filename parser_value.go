@@ -72,10 +72,13 @@ func (p *parser) parseValue(stopMask valueStopMask) (Value, bool) {
 // parseArrayValue parses `{...}` with nested arrays and trailing commas.
 func (p *parser) parseArrayValue() (Value, bool) {
 	startToken := p.consume()
+	capHint := p.estimateArrayElementCap()
 	value := Value{
-		Kind:     ValueArray,
-		Elements: make([]Value, 0, 4),
-		Start:    startToken.Start,
+		Kind:  ValueArray,
+		Start: startToken.Start,
+	}
+	if capHint > 0 {
+		value.Elements = make([]Value, 0, capHint)
 	}
 
 	for {
@@ -96,6 +99,10 @@ func (p *parser) parseArrayValue() (Value, bool) {
 		if !ok {
 			p.recoverArrayItem()
 		} else {
+			if value.Elements == nil {
+				value.Elements = make([]Value, 0, 4)
+			}
+
 			value.Elements = append(value.Elements, item)
 		}
 
@@ -119,6 +126,49 @@ func (p *parser) parseArrayValue() (Value, bool) {
 		p.emitError(CodeParExpectedArrayDelimiter, p.peek().Start, "expected ',' or '}' in array literal")
 		p.recoverArrayItem()
 	}
+}
+
+// estimateArrayElementCap estimates element count until matching array closing brace.
+func (p *parser) estimateArrayElementCap() int {
+	depth := 1
+	count := 0
+	hasItem := false
+
+	for idx := p.index; idx < len(p.tokens); idx++ {
+		kind := p.tokens[idx].Kind
+		if kind == TokenComment || kind == TokenNewline {
+			continue
+		}
+
+		switch kind {
+		case TokenLBrace:
+			if depth == 1 {
+				hasItem = true
+			}
+
+			depth++
+		case TokenRBrace:
+			depth--
+			if depth == 0 {
+				if hasItem {
+					count++
+				}
+
+				return count
+			}
+		case TokenComma:
+			if depth == 1 && hasItem {
+				count++
+				hasItem = false
+			}
+		default:
+			if depth == 1 {
+				hasItem = true
+			}
+		}
+	}
+
+	return 0
 }
 
 // parseBaseExpression captures tokens between `:` and class body/semicolon.

@@ -5,45 +5,17 @@
 package rvcfg
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
-type intrinsicValue struct {
-	text     string
-	number   float64
-	isString bool
-}
-
-func (p *preprocessor) expandExecEvalIntrinsics(line string) (string, error) {
-	out := line
-
-	for pass := 0; pass < p.maxExpandDepth; pass++ {
-		changed := false
-
-		next, changedExec, err := p.expandExecIntrinsics(out)
-		if err != nil {
-			return out, err
-		}
-
-		next, changedEval, err := p.expandEvalIntrinsics(next)
-		if err != nil {
-			return out, err
-		}
-
-		out = next
-		changed = changedExec || changedEval
-		if !changed {
-			return strings.TrimSpace(out), nil
-		}
-	}
-
-	return out, errors.New("__EXEC/__EVAL expansion depth overflow")
-}
-
+// expandExecIntrinsics executes __EXEC(...) assignments.
 func (p *preprocessor) expandExecIntrinsics(input string) (string, bool, error) {
 	changedAny := false
 	out := input
@@ -69,6 +41,7 @@ func (p *preprocessor) expandExecIntrinsics(input string) (string, bool, error) 
 	}
 }
 
+// expandEvalIntrinsics evaluates __EVAL(...) expressions.
 func (p *preprocessor) expandEvalIntrinsics(input string) (string, bool, error) {
 	changedAny := false
 	out := input
@@ -96,6 +69,7 @@ func (p *preprocessor) expandEvalIntrinsics(input string) (string, bool, error) 
 	}
 }
 
+// executeExecBody parses and executes semicolon-separated __EXEC statements.
 func (p *preprocessor) executeExecBody(body string) error {
 	statements := splitExecStatements(body)
 	for _, statement := range statements {
@@ -130,6 +104,7 @@ func (p *preprocessor) executeExecBody(body string) error {
 	return nil
 }
 
+// evaluateEvalExpression evaluates expression and formats scalar/string result.
 func (p *preprocessor) evaluateEvalExpression(expr string) (string, error) {
 	value, err := p.evalIntrinsicExpr(expr)
 	if err != nil {
@@ -147,6 +122,7 @@ func (p *preprocessor) evaluateEvalExpression(expr string) (string, error) {
 	return strconv.FormatFloat(value.number, 'f', -1, 64), nil
 }
 
+// evalIntrinsicExpr evaluates intrinsic arithmetic/string expression.
 func (p *preprocessor) evalIntrinsicExpr(expr string) (intrinsicValue, error) {
 	parser := newIntrinsicExprParser(expr, p.execEvalVars)
 	value, err := parser.parseExpr()
@@ -162,6 +138,7 @@ func (p *preprocessor) evalIntrinsicExpr(expr string) (intrinsicValue, error) {
 	return value, nil
 }
 
+// splitExecStatements splits __EXEC body by top-level semicolons.
 func splitExecStatements(input string) []string {
 	out := make([]string, 0, 4)
 	start := 0
@@ -211,88 +188,7 @@ func splitExecStatements(input string) []string {
 	return out
 }
 
-func findIntrinsicCall(input string, name string, from int) (int, string, int, bool, error) {
-	if from < 0 {
-		from = 0
-	}
-
-	for i := from; i < len(input); i++ {
-		if !hasIdentifierAt(input, i, name) {
-			continue
-		}
-
-		open := i + len(name)
-		if open >= len(input) || input[open] != '(' {
-			continue
-		}
-
-		body, end, err := parseIntrinsicCallBody(input, open)
-		if err != nil {
-			return 0, "", 0, false, err
-		}
-
-		return i, body, end, true, nil
-	}
-
-	return 0, "", 0, false, nil
-}
-
-func parseIntrinsicCallBody(input string, open int) (string, int, error) {
-	if open >= len(input) || input[open] != '(' {
-		return "", 0, errors.New("intrinsic call parse without opening parenthesis")
-	}
-
-	start := open + 1
-	depth := 1
-	inString := false
-
-	for i := start; i < len(input); i++ {
-		ch := input[i]
-		if inString {
-			if ch == '"' {
-				inString = false
-			}
-
-			continue
-		}
-
-		if ch == '"' {
-			inString = true
-
-			continue
-		}
-
-		if ch == '(' {
-			depth++
-
-			continue
-		}
-
-		if ch == ')' {
-			depth--
-			if depth == 0 {
-				return strings.TrimSpace(input[start:i]), i + 1, nil
-			}
-		}
-	}
-
-	return "", 0, errors.New("unterminated intrinsic call")
-}
-
-func quoteIntrinsicString(value string) string {
-	return `"` + strings.ReplaceAll(value, `"`, `\"`) + `"`
-}
-
-func isIntegralFloat(v float64) bool {
-	const eps = 1e-9
-	iv := float64(int64(v))
-	if v >= 0 {
-		return v-iv < eps
-	}
-
-	return iv-v < eps
-}
-
+// isIntrinsicIdent checks whether name is valid __EXEC variable identifier.
 func isIntrinsicIdent(name string) bool {
 	if name == "" {
 		return false
@@ -316,12 +212,268 @@ func isIntrinsicIdent(name string) bool {
 	return true
 }
 
+// expandDynamicIntrinsics expands non-deterministic optional intrinsics.
+func (p *preprocessor) expandDynamicIntrinsics(input string) string {
+	if input == "" {
+		return input
+	}
+
+	var out strings.Builder
+	lastWrite := 0
+	replaced := false
+
+	inString := false
+	inLineComment := false
+	inBlockComment := false
+
+	for i := 0; i < len(input); {
+		if inLineComment {
+			if input[i] == '\n' {
+				inLineComment = false
+			}
+
+			i++
+
+			continue
+		}
+
+		if inBlockComment {
+			if input[i] == '*' && i+1 < len(input) && input[i+1] == '/' {
+				inBlockComment = false
+				i += 2
+
+				continue
+			}
+
+			i++
+
+			continue
+		}
+
+		if inString {
+			if input[i] == '"' {
+				inString = false
+			}
+
+			i++
+
+			continue
+		}
+
+		if input[i] == '"' {
+			inString = true
+			i++
+
+			continue
+		}
+
+		if input[i] == '/' && i+1 < len(input) && input[i+1] == '/' {
+			inLineComment = true
+			i += 2
+
+			continue
+		}
+
+		if input[i] == '/' && i+1 < len(input) && input[i+1] == '*' {
+			inBlockComment = true
+			i += 2
+
+			continue
+		}
+
+		if !isIdentifierPart(input[i]) {
+			i++
+
+			continue
+		}
+
+		start := i
+		for i < len(input) && isIdentifierPart(input[i]) {
+			i++
+		}
+
+		token := input[start:i]
+		replacement, ok := p.dynamicIntrinsicReplacement(token)
+		if !ok {
+			continue
+		}
+
+		if !replaced {
+			out.Grow(len(input))
+			replaced = true
+		}
+
+		out.WriteString(input[lastWrite:start])
+		out.WriteString(replacement)
+		lastWrite = i
+	}
+
+	if !replaced {
+		return input
+	}
+
+	out.WriteString(input[lastWrite:])
+
+	return out.String()
+}
+
+// dynamicIntrinsicReplacement evaluates dynamic intrinsic token replacement.
+func (p *preprocessor) dynamicIntrinsicReplacement(token string) (string, bool) {
+	localNow := p.dynamicNow
+	utcNow := p.dynamicNow.UTC()
+
+	switch token {
+	case "__DATE_ARR__":
+		return strconv.Itoa(localNow.Year()) +
+			"," + strconv.Itoa(int(localNow.Month())) +
+			"," + strconv.Itoa(localNow.Day()) +
+			"," + strconv.Itoa(localNow.Hour()) +
+			"," + strconv.Itoa(localNow.Minute()) +
+			"," + strconv.Itoa(localNow.Second()), true
+	case "__DATE_STR__":
+		return quoteIntrinsicString(localNow.Format("2006/01/02, 15:04:05")), true
+	case "__DATE_STR_ISO8601__":
+		return quoteIntrinsicString(utcNow.Format(time.RFC3339)), true
+	case "__TIME__":
+		return localNow.Format("15:04:05"), true
+	case "__TIME_UTC__":
+		return utcNow.Format("15:04:05"), true
+	case "__DAY__":
+		return strconv.Itoa(localNow.Day()), true
+	case "__MONTH__":
+		return strconv.Itoa(int(localNow.Month())), true
+	case "__YEAR__":
+		return strconv.Itoa(localNow.Year()), true
+	case "__TIMESTAMP_UTC__":
+		return strconv.FormatInt(utcNow.Unix(), 10), true
+	case "__COUNTER__":
+		value := p.counter
+		p.counter++
+
+		return strconv.FormatUint(value, 10), true
+	case "__COUNTER_RESET__":
+		p.counter = 0
+
+		return "", true
+	}
+
+	if strings.HasPrefix(token, "__RAND_INT") && strings.HasSuffix(token, "__") {
+		bits, ok := parseRandBits(token, "__RAND_INT", "__")
+		if !ok {
+			return "", false
+		}
+
+		value, ok := p.randomInt(bits)
+		if !ok {
+			return "", false
+		}
+
+		return strconv.FormatInt(value, 10), true
+	}
+
+	if strings.HasPrefix(token, "__RAND_UINT") && strings.HasSuffix(token, "__") {
+		bits, ok := parseRandBits(token, "__RAND_UINT", "__")
+		if !ok {
+			return "", false
+		}
+
+		value, ok := p.randomUint(bits)
+		if !ok {
+			return "", false
+		}
+
+		return strconv.FormatUint(value, 10), true
+	}
+
+	return "", false
+}
+
+// parseRandBits parses bit-width suffix for random intrinsics.
+func parseRandBits(token string, prefix string, suffix string) (int, bool) {
+	if !strings.HasPrefix(token, prefix) || !strings.HasSuffix(token, suffix) {
+		return 0, false
+	}
+
+	raw := strings.TrimSuffix(strings.TrimPrefix(token, prefix), suffix)
+	if raw == "" {
+		return 0, false
+	}
+
+	bits, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, false
+	}
+
+	switch bits {
+	case 8, 16, 32, 64:
+		return bits, true
+	default:
+		return 0, false
+	}
+}
+
+// randomUint returns cryptographically secure unsigned random value for bits.
+func (p *preprocessor) randomUint(bits int) (uint64, bool) {
+	shift, ok := randBitShift(bits)
+	if !ok {
+		return 0, false
+	}
+
+	upperBound := new(big.Int).Lsh(big.NewInt(1), shift)
+	n, err := rand.Int(rand.Reader, upperBound)
+	if err != nil {
+		return 0, false
+	}
+
+	return n.Uint64(), true
+}
+
+// randomInt returns cryptographically secure signed random value for bits.
+func (p *preprocessor) randomInt(bits int) (int64, bool) {
+	shift, ok := randBitShift(bits)
+	if !ok {
+		return 0, false
+	}
+
+	span := new(big.Int).Lsh(big.NewInt(1), shift)
+	n, err := rand.Int(rand.Reader, span)
+	if err != nil {
+		return 0, false
+	}
+
+	offset := new(big.Int).Lsh(big.NewInt(1), shift-1)
+	n.Sub(n, offset)
+	if !n.IsInt64() {
+		return 0, false
+	}
+
+	return n.Int64(), true
+}
+
+// randBitShift validates bit-width for random intrinsics.
+func randBitShift(bits int) (uint, bool) {
+	switch bits {
+	case 8:
+		return 8, true
+	case 16:
+		return 16, true
+	case 32:
+		return 32, true
+	case 64:
+		return 64, true
+	default:
+		return 0, false
+	}
+}
+
+// intrinsicExprParser parses __EVAL expression into intrinsicValue.
 type intrinsicExprParser struct {
 	vars  map[string]intrinsicValue
 	input string
 	pos   int
 }
 
+// newIntrinsicExprParser creates parser for one expression.
 func newIntrinsicExprParser(input string, vars map[string]intrinsicValue) *intrinsicExprParser {
 	return &intrinsicExprParser{
 		input: input,
@@ -330,10 +482,12 @@ func newIntrinsicExprParser(input string, vars map[string]intrinsicValue) *intri
 	}
 }
 
+// parseExpr parses expression root.
 func (p *intrinsicExprParser) parseExpr() (intrinsicValue, error) {
 	return p.parseAddSub()
 }
 
+// parseAddSub parses + and - precedence layer.
 func (p *intrinsicExprParser) parseAddSub() (intrinsicValue, error) {
 	left, err := p.parseMulDiv()
 	if err != nil {
@@ -370,6 +524,7 @@ func (p *intrinsicExprParser) parseAddSub() (intrinsicValue, error) {
 	}
 }
 
+// parseMulDiv parses * and / precedence layer.
 func (p *intrinsicExprParser) parseMulDiv() (intrinsicValue, error) {
 	left, err := p.parseUnary()
 	if err != nil {
@@ -410,6 +565,7 @@ func (p *intrinsicExprParser) parseMulDiv() (intrinsicValue, error) {
 	}
 }
 
+// parseUnary parses unary +/- operators.
 func (p *intrinsicExprParser) parseUnary() (intrinsicValue, error) {
 	p.skipSpaces()
 	if p.match('+') {
@@ -432,6 +588,7 @@ func (p *intrinsicExprParser) parseUnary() (intrinsicValue, error) {
 	return p.parsePrimary()
 }
 
+// parsePrimary parses literals, identifiers, and parenthesized expressions.
 func (p *intrinsicExprParser) parsePrimary() (intrinsicValue, error) {
 	p.skipSpaces()
 	if p.eof() {
@@ -473,6 +630,7 @@ func (p *intrinsicExprParser) parsePrimary() (intrinsicValue, error) {
 	return intrinsicValue{}, fmt.Errorf("unexpected token at pos=%d", p.pos)
 }
 
+// parseString parses quoted string literal without unescaping semantics.
 func (p *intrinsicExprParser) parseString() (intrinsicValue, error) {
 	if !p.match('"') {
 		return intrinsicValue{}, errors.New("expected string literal")
@@ -494,6 +652,7 @@ func (p *intrinsicExprParser) parseString() (intrinsicValue, error) {
 	return intrinsicValue{}, errors.New("unterminated string literal")
 }
 
+// parseNumber parses integer/float numeric literal.
 func (p *intrinsicExprParser) parseNumber() (intrinsicValue, error) {
 	start := p.pos
 	dotSeen := false
@@ -530,6 +689,7 @@ func (p *intrinsicExprParser) parseNumber() (intrinsicValue, error) {
 	return intrinsicValue{number: num}, nil
 }
 
+// parseIdent parses identifier token.
 func (p *intrinsicExprParser) parseIdent() string {
 	start := p.pos
 	p.pos++
@@ -546,6 +706,7 @@ func (p *intrinsicExprParser) parseIdent() string {
 	return p.input[start:p.pos]
 }
 
+// skipSpaces advances parser over ASCII whitespace.
 func (p *intrinsicExprParser) skipSpaces() {
 	for !p.eof() {
 		switch p.input[p.pos] {
@@ -557,6 +718,7 @@ func (p *intrinsicExprParser) skipSpaces() {
 	}
 }
 
+// match consumes ch if present at current parser position.
 func (p *intrinsicExprParser) match(ch byte) bool {
 	if p.eof() || p.input[p.pos] != ch {
 		return false
@@ -567,14 +729,17 @@ func (p *intrinsicExprParser) match(ch byte) bool {
 	return true
 }
 
+// peek returns current byte without consuming.
 func (p *intrinsicExprParser) peek() byte {
 	return p.input[p.pos]
 }
 
+// eof reports parser end of input.
 func (p *intrinsicExprParser) eof() bool {
 	return p.pos >= len(p.input)
 }
 
+// addIntrinsicValues applies + semantics for numeric/string values.
 func addIntrinsicValues(left intrinsicValue, right intrinsicValue) intrinsicValue {
 	if left.isString || right.isString {
 		leftText := intrinsicValueToString(left)
@@ -591,6 +756,7 @@ func addIntrinsicValues(left intrinsicValue, right intrinsicValue) intrinsicValu
 	}
 }
 
+// intrinsicValueToString formats intrinsic value as string.
 func intrinsicValueToString(value intrinsicValue) string {
 	if value.isString {
 		return value.text
@@ -603,14 +769,17 @@ func intrinsicValueToString(value intrinsicValue) string {
 	return strconv.FormatFloat(value.number, 'f', -1, 64)
 }
 
+// isDigitByte reports whether byte is ASCII decimal digit.
 func isDigitByte(ch byte) bool {
 	return ch >= '0' && ch <= '9'
 }
 
+// isIntrinsicIdentStart reports whether byte can start intrinsic identifier.
 func isIntrinsicIdentStart(ch byte) bool {
 	return ch == '_' || ch == '$' || unicode.IsLetter(rune(ch))
 }
 
+// isIntrinsicIdentPart reports whether byte can continue intrinsic identifier.
 func isIntrinsicIdentPart(ch byte) bool {
 	return isIntrinsicIdentStart(ch) || unicode.IsDigit(rune(ch))
 }

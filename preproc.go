@@ -17,6 +17,18 @@ const (
 	defaultMaxExpandDepth  = 32
 )
 
+// PreprocessMode defines high-level preprocessor behavior profile.
+type PreprocessMode string
+
+const (
+	// PreprocessModeStrict mirrors DayZ CfgConvert behavior as default profile.
+	PreprocessModeStrict PreprocessMode = "strict"
+	// PreprocessModeCompat enables compatibility helpers on top of strict mode.
+	PreprocessModeCompat PreprocessMode = "compat"
+	// PreprocessModeExtended enables extended feature profile for custom workflows.
+	PreprocessModeExtended PreprocessMode = "extended"
+)
+
 // PreprocessOptions configures preprocess behavior.
 type PreprocessOptions struct {
 
@@ -25,6 +37,14 @@ type PreprocessOptions struct {
 
 	// Defines are additional external symbols.
 	Defines map[string]string `json:"defines,omitempty" yaml:"defines,omitempty"`
+
+	// Mode selects high-level preprocessor profile.
+	// Empty value defaults to strict behavior.
+	Mode PreprocessMode `json:"mode,omitempty" yaml:"mode,omitempty"`
+
+	// ExtendedFSRoot restricts filesystem intrinsics to this root directory.
+	// Empty value uses current source file directory.
+	ExtendedFSRoot string `json:"extended_fs_root,omitempty" yaml:"extended_fs_root,omitempty"`
 
 	// IncludeDirs are extra include search directories.
 	IncludeDirs []string `json:"include_dirs,omitempty" yaml:"include_dirs,omitempty"`
@@ -35,6 +55,14 @@ type PreprocessOptions struct {
 	// MaxExpandDepth limits macro expansion recursion.
 	MaxExpandDepth int `json:"max_expand_depth,omitempty" yaml:"max_expand_depth,omitempty"`
 
+	// ExtendedFSMaxItems limits matched file entries for filesystem intrinsics.
+	// Non-positive value uses default internal limit.
+	ExtendedFSMaxItems int `json:"extended_fs_max_items,omitempty" yaml:"extended_fs_max_items,omitempty"`
+
+	// ExtendedLoopMaxItems limits iteration count for extended loop intrinsics.
+	// Non-positive value uses default internal limit.
+	ExtendedLoopMaxItems int `json:"extended_loop_max_items,omitempty" yaml:"extended_loop_max_items,omitempty"`
+
 	// EmitIncludeMarkers inserts include boundary markers into output text.
 	// Markers are emitted as line comments:
 	//   // <include-start "path">
@@ -44,16 +72,30 @@ type PreprocessOptions struct {
 	// TrackSourceMap enables source map generation for output lines.
 	TrackSourceMap bool `json:"track_source_map,omitempty" yaml:"track_source_map,omitempty"`
 
-	// EnableExecEvalIntrinsics enables compatibility mode for __EXEC/__EVAL.
+	// EnableExecEvalIntrinsics enables compatibility mode for `__EXEC`/`__EVAL`.
 	// Disabled by default to keep preprocess deterministic and side-effect free.
 	EnableExecEvalIntrinsics bool `json:"enable_exec_eval_intrinsics,omitempty" yaml:"enable_exec_eval_intrinsics,omitempty"`
 
 	// EnableDynamicIntrinsics enables non-deterministic/date/counter intrinsics:
-	// __DATE_ARR__, __DATE_STR__, __DATE_STR_ISO8601__, __TIME__, __TIME_UTC__,
-	// __DAY__, __MONTH__, __YEAR__, __TIMESTAMP_UTC__,
-	// __COUNTER__, __COUNTER_RESET__, __RAND_INT*N*__, __RAND_UINT*N*__.
+	// `__DATE_ARR__`, `__DATE_STR__`, `__DATE_STR_ISO8601__`, `__TIME__`, `__TIME_UTC__`,
+	// `__DAY__`, `__MONTH__`, `__YEAR__`, `__TIMESTAMP_UTC__`,
+	// `__COUNTER__`, `__COUNTER_RESET__`, `__RAND_INT*N*__`, `__RAND_UINT*N*__`.
+	//
 	// Disabled by default.
 	EnableDynamicIntrinsics bool `json:"enable_dynamic_intrinsics,omitempty" yaml:"enable_dynamic_intrinsics,omitempty"`
+
+	// EnableFileNameIntrinsics enables `__FILE_NAME__` and `__FILE_SHORT__`.
+	// Disabled by default because DayZ CfgConvert strict mode does not expand them.
+	EnableFileNameIntrinsics bool `json:"enable_file_name_intrinsics,omitempty" yaml:"enable_file_name_intrinsics,omitempty"`
+
+	// EnableMacroRedefinitionWarnings emits warnings when macro is redefined.
+	// Disabled by default in strict mode for closer DayZ CfgConvert parity.
+	EnableMacroRedefinitionWarnings bool `json:"enable_macro_redefinition_warnings,omitempty" yaml:"enable_macro_redefinition_warnings,omitempty"`
+
+	// EnableIfExpressions enables `#if`/`#elif` expression evaluation.
+	// Disabled by default in strict mode because DayZ CfgConvert rejects
+	// `#if`/`#elif` directives.
+	EnableIfExpressions bool `json:"enable_if_expressions,omitempty" yaml:"enable_if_expressions,omitempty"`
 }
 
 // PreprocessResult is preprocessor output bundle.
@@ -116,7 +158,7 @@ type logicalLine struct {
 // PreprocessFile resolves includes and expands macros for file input.
 func PreprocessFile(path string, opts PreprocessOptions) (PreprocessResult, error) {
 	pp := newPreprocessor(opts)
-	lines, err := pp.processFile(path, 0)
+	lines, err := pp.processFile(path, path, 0)
 	text := joinMappedLines(lines)
 	sourceMap := buildSourceMap(lines, pp.trackSourceMap)
 	if err != nil {
@@ -171,6 +213,7 @@ type preprocessor struct {
 	fileStack            map[string]bool
 	macroRedefWarnedV0   map[string]struct{}
 	execEvalVars         map[string]intrinsicValue
+	extendedFSRoot       string
 	diagnostics          []Diagnostic
 	includes             []string
 	includeDirs          []string
@@ -179,11 +222,17 @@ type preprocessor struct {
 	maxIncludeDepth      int
 	maxExpandDepth       int
 	counter              uint64
+	extendedFSMaxItems   int
+	extendedLoopMaxItems int
 	macroNamesDirty      bool
 	emitIncludeMarkers   bool
 	trackSourceMap       bool
 	enableExecEval       bool
 	enableDynamic        bool
+	enableFileName       bool
+	enableMacroRedefWarn bool
+	enableIfExpr         bool
+	enableExtended       bool
 }
 
 // newPreprocessor initializes mutable preprocess state.
@@ -201,21 +250,50 @@ func newPreprocessor(opts PreprocessOptions) *preprocessor {
 		resolver = defaultIncludeResolver{}
 	}
 
+	mode := opts.Mode
+	if mode == "" {
+		mode = PreprocessModeStrict
+	}
+
+	switch mode {
+	case PreprocessModeCompat, PreprocessModeExtended:
+		opts.EnableExecEvalIntrinsics = true
+		opts.EnableDynamicIntrinsics = true
+		opts.EnableFileNameIntrinsics = true
+		opts.EnableMacroRedefinitionWarnings = true
+		opts.EnableIfExpressions = true
+	}
+
+	if opts.ExtendedFSMaxItems <= 0 {
+		opts.ExtendedFSMaxItems = 512
+	}
+
+	if opts.ExtendedLoopMaxItems <= 0 {
+		opts.ExtendedLoopMaxItems = 2048
+	}
+
 	pp := &preprocessor{
-		macros:             make(map[string]macroDefinition),
-		fileStack:          make(map[string]bool),
-		includeDirs:        opts.IncludeDirs,
-		includeResolver:    resolver,
-		macroRedefWarnedV0: make(map[string]struct{}),
-		macroNamesDirty:    true,
-		emitIncludeMarkers: opts.EmitIncludeMarkers,
-		trackSourceMap:     opts.TrackSourceMap,
-		enableExecEval:     opts.EnableExecEvalIntrinsics,
-		enableDynamic:      opts.EnableDynamicIntrinsics,
-		dynamicNow:         time.Now(),
-		execEvalVars:       make(map[string]intrinsicValue, 32),
-		maxIncludeDepth:    opts.MaxIncludeDepth,
-		maxExpandDepth:     opts.MaxExpandDepth,
+		macros:               make(map[string]macroDefinition),
+		fileStack:            make(map[string]bool),
+		includeDirs:          opts.IncludeDirs,
+		includeResolver:      resolver,
+		macroRedefWarnedV0:   make(map[string]struct{}),
+		macroNamesDirty:      true,
+		emitIncludeMarkers:   opts.EmitIncludeMarkers,
+		trackSourceMap:       opts.TrackSourceMap,
+		enableExecEval:       opts.EnableExecEvalIntrinsics,
+		enableDynamic:        opts.EnableDynamicIntrinsics,
+		enableFileName:       opts.EnableFileNameIntrinsics,
+		enableMacroRedefWarn: opts.EnableMacroRedefinitionWarnings,
+		enableIfExpr:         opts.EnableIfExpressions,
+		enableExtended:       mode == PreprocessModeExtended,
+		extendedFSRoot:       opts.ExtendedFSRoot,
+		extendedFSMaxItems:   opts.ExtendedFSMaxItems,
+		extendedLoopMaxItems: opts.ExtendedLoopMaxItems,
+		dynamicNow:           time.Now(),
+		execEvalVars:         make(map[string]intrinsicValue, 32),
+		maxIncludeDepth:      opts.MaxIncludeDepth,
+		maxExpandDepth:       opts.MaxExpandDepth,
 	}
 
 	for key, value := range opts.Defines {
@@ -229,9 +307,13 @@ func newPreprocessor(opts PreprocessOptions) *preprocessor {
 }
 
 // processFile preprocesses file with include recursion handling.
-func (p *preprocessor) processFile(path string, depth int) ([]mappedLine, error) {
+func (p *preprocessor) processFile(path string, displayPath string, depth int) ([]mappedLine, error) {
 	if depth > p.maxIncludeDepth {
 		return nil, fmt.Errorf("%w: include depth exceeded at %q", ErrIncludeNotFound, path)
+	}
+
+	if strings.TrimSpace(displayPath) == "" {
+		displayPath = path
 	}
 
 	absPath, err := filepath.Abs(path)
@@ -254,7 +336,7 @@ func (p *preprocessor) processFile(path string, depth int) ([]mappedLine, error)
 	defer delete(p.fileStack, absPath)
 
 	text := normalizeLineEndings(string(data))
-	out, err := p.processText(absPath, text, depth)
+	out, err := p.processText(absPath, displayPath, text, depth)
 	if err != nil {
 		return out, err
 	}
@@ -263,7 +345,7 @@ func (p *preprocessor) processFile(path string, depth int) ([]mappedLine, error)
 }
 
 // processText applies directives and macro expansion to text.
-func (p *preprocessor) processText(filename string, text string, depth int) ([]mappedLine, error) {
+func (p *preprocessor) processText(filename string, displayFilename string, text string, depth int) ([]mappedLine, error) {
 	lines := mergeLineContinuationsWithSourceLines(text)
 	out := make([]mappedLine, 0, len(lines))
 	frames := make([]conditionalFrame, 0, 8)
@@ -272,6 +354,7 @@ func (p *preprocessor) processText(filename string, text string, depth int) ([]m
 	for _, sourceLine := range lines {
 		lineNo := sourceLine.SourceLine
 		line := sourceLine.Text
+
 		trimmed := strings.TrimSpace(line)
 
 		if strings.HasPrefix(trimmed, "#") {
@@ -298,16 +381,10 @@ func (p *preprocessor) processText(filename string, text string, depth int) ([]m
 			return out, err
 		}
 
-		expanded = p.expandBuiltInIntrinsics(expanded, filename, lineNo)
+		expanded = p.expandBuiltInIntrinsics(expanded, displayFilename, lineNo)
 
-		if strings.Contains(expanded, "__EXEC") || strings.Contains(expanded, "__EVAL") {
-			if !p.enableExecEval {
-				p.emitError(CodePPUnsupportedIntrinsic, filename, lineNo, "__EXEC/__EVAL are unsupported in v0")
-
-				return out, ErrUnsupportedIntrinsic
-			}
-
-			expanded, err = p.expandExecEvalIntrinsics(expanded)
+		if p.shouldExpandCompatIntrinsics(expanded) {
+			expanded, err = p.expandExecEvalIntrinsics(expanded, filename)
 			if err != nil {
 				p.emitError(CodePPUnsupportedIntrinsic, filename, lineNo, err.Error())
 
@@ -315,23 +392,15 @@ func (p *preprocessor) processText(filename string, text string, depth int) ([]m
 			}
 		}
 
-		unresolvedCalls, nextBlockComment := p.findUnresolvedMacroCalls(expanded, inBlockComment)
-		inBlockComment = nextBlockComment
-		if len(unresolvedCalls) > 0 {
-			p.emitError(
-				CodePPUnresolvedMacroInvocation,
-				filename,
-				lineNo,
-				"unresolved macro-like invocation(s): "+strings.Join(unresolvedCalls, ", "),
-			)
-
-			return out, ErrUnresolvedMacroInvocation
+		expanded, inBlockComment = stripComments(expanded, inBlockComment)
+		if strings.TrimSpace(expanded) == "" {
+			continue
 		}
 
 		out = append(out, mappedLine{
 			kind:       "source",
 			text:       expanded,
-			sourceFile: filename,
+			sourceFile: displayFilename,
 			sourceLine: lineNo,
 		})
 	}
@@ -368,7 +437,7 @@ func (p *preprocessor) handleDirective(
 
 	switch name {
 	case "include":
-		includePath, err := parseQuotedInclude(arg)
+		includePath, tail, err := parseIncludePathWithTail(arg)
 		if err != nil {
 			p.emitError(CodePPInvalidIncludeSyntax, filename, lineNo, err.Error())
 
@@ -383,9 +452,23 @@ func (p *preprocessor) handleDirective(
 		}
 
 		p.includes = append(p.includes, resolved)
-		lines, err := p.processFile(resolved, depth+1)
+		lines, err := p.processFile(resolved, includePath, depth+1)
 		if err != nil {
 			return nil, err
+		}
+
+		tailText, err := p.expandDirectiveTailText(filename, lineNo, tail)
+		if err != nil {
+			return nil, err
+		}
+
+		if tailText != "" {
+			lines = append(lines, mappedLine{
+				kind:       "source",
+				text:       tailText,
+				sourceFile: filename,
+				sourceLine: lineNo,
+			})
 		}
 
 		if !p.emitIncludeMarkers {
@@ -419,25 +502,59 @@ func (p *preprocessor) handleDirective(
 		return nil, nil
 
 	case "undef":
-		name := strings.TrimSpace(arg)
-		delete(p.macros, name)
+		macroName, tail := splitDirectiveHeadTail(arg)
+		if macroName == "" {
+			p.emitError(CodePPMissingMacroName, filename, lineNo, "missing macro name in #undef")
+
+			return nil, ErrInvalidDirective
+		}
+
+		delete(p.macros, macroName)
 		p.macroNamesDirty = true
 
-		return nil, nil
+		return p.emitDirectiveTail(filename, lineNo, tail)
 
 	case "ifdef":
-		exists := p.macroExists(strings.TrimSpace(arg))
+		macroName, tail := splitDirectiveHeadTail(arg)
+		if macroName == "" {
+			p.emitError(CodePPMissingMacroName, filename, lineNo, "missing macro name in #ifdef")
+
+			return nil, ErrInvalidDirective
+		}
+
+		exists := p.macroExists(macroName)
 		pushConditional(frames, exists)
 
-		return nil, nil
+		if !framesActive(*frames) {
+			return nil, nil
+		}
+
+		return p.emitDirectiveTail(filename, lineNo, tail)
 
 	case "ifndef":
-		exists := p.macroExists(strings.TrimSpace(arg))
+		macroName, tail := splitDirectiveHeadTail(arg)
+		if macroName == "" {
+			p.emitError(CodePPMissingMacroName, filename, lineNo, "missing macro name in #ifndef")
+
+			return nil, ErrInvalidDirective
+		}
+
+		exists := p.macroExists(macroName)
 		pushConditional(frames, !exists)
 
-		return nil, nil
+		if !framesActive(*frames) {
+			return nil, nil
+		}
+
+		return p.emitDirectiveTail(filename, lineNo, tail)
 
 	case "if":
+		if !p.enableIfExpr {
+			p.emitError(CodePPUnsupportedDirective, filename, lineNo, "unsupported directive #if")
+
+			return nil, ErrUnsupportedDirective
+		}
+
 		if containsHasIncludeIntrinsic(arg) {
 			p.emitError(CodePPUnsupportedHasInclude, filename, lineNo, "__has_include is unsupported in v0")
 
@@ -450,6 +567,12 @@ func (p *preprocessor) handleDirective(
 		return nil, nil
 
 	case "elif":
+		if !p.enableIfExpr {
+			p.emitError(CodePPUnsupportedDirective, filename, lineNo, "unsupported directive #elif")
+
+			return nil, ErrUnsupportedDirective
+		}
+
 		if containsHasIncludeIntrinsic(arg) {
 			p.emitError(CodePPUnsupportedHasInclude, filename, lineNo, "__has_include is unsupported in v0")
 
@@ -473,7 +596,11 @@ func (p *preprocessor) handleDirective(
 			return nil, ErrInvalidDirective
 		}
 
-		return nil, nil
+		if !framesActive(*frames) {
+			return nil, nil
+		}
+
+		return p.emitDirectiveTail(filename, lineNo, arg)
 
 	case "endif":
 		ok := popConditional(frames)
@@ -483,7 +610,11 @@ func (p *preprocessor) handleDirective(
 			return nil, ErrInvalidDirective
 		}
 
-		return nil, nil
+		if !framesActive(*frames) {
+			return nil, nil
+		}
+
+		return p.emitDirectiveTail(filename, lineNo, arg)
 
 	case "error":
 		msg := strings.TrimSpace(arg)
@@ -504,4 +635,57 @@ func (p *preprocessor) handleDirective(
 // resolveInclude resolves include path from current file and include dirs.
 func (p *preprocessor) resolveInclude(currentFile string, includePath string) (string, error) {
 	return p.includeResolver.Resolve(currentFile, includePath, p.includeDirs)
+}
+
+// emitDirectiveTail expands and emits extra text that follows directive arguments.
+func (p *preprocessor) emitDirectiveTail(filename string, lineNo int, tail string) ([]mappedLine, error) {
+	tailText, err := p.expandDirectiveTailText(filename, lineNo, tail)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.TrimSpace(tailText) == "" {
+		return nil, nil
+	}
+
+	return []mappedLine{
+		{
+			kind:       "source",
+			text:       tailText,
+			sourceFile: filename,
+			sourceLine: lineNo,
+		},
+	}, nil
+}
+
+// expandDirectiveTailText expands tail text that follows directive arguments.
+func (p *preprocessor) expandDirectiveTailText(filename string, lineNo int, tail string) (string, error) {
+	if tail == "" {
+		return "", nil
+	}
+
+	expanded, err := p.expandLine(tail)
+	if err != nil {
+		p.emitError(CodePPMacroExpand, filename, lineNo, err.Error())
+
+		return "", err
+	}
+
+	return expanded, nil
+}
+
+// shouldExpandCompatIntrinsics checks if line contains enabled compat/extended intrinsics.
+func (p *preprocessor) shouldExpandCompatIntrinsics(line string) bool {
+	if p.enableExecEval && (strings.Contains(line, "__EXEC") || strings.Contains(line, "__EVAL")) {
+		return true
+	}
+
+	if !p.enableExtended {
+		return false
+	}
+
+	return strings.Contains(line, "__PATH_NORM") ||
+		strings.Contains(line, "__STR_") ||
+		strings.Contains(line, "__FILES_") ||
+		strings.Contains(line, "__FOR_")
 }

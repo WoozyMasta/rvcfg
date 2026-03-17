@@ -12,12 +12,23 @@ func joinMappedLines(lines []mappedLine) string {
 		return ""
 	}
 
-	textLines := make([]string, 0, len(lines))
+	totalSize := len(lines) - 1
 	for _, line := range lines {
-		textLines = append(textLines, line.text)
+		totalSize += len(line.text)
 	}
 
-	return strings.Join(textLines, "\n")
+	var out strings.Builder
+	out.Grow(totalSize)
+
+	for idx, line := range lines {
+		if idx > 0 {
+			out.WriteByte('\n')
+		}
+
+		out.WriteString(line.text)
+	}
+
+	return out.String()
 }
 
 // buildSourceMap compresses mapped lines into source map entries.
