@@ -20,9 +20,9 @@ var diagnosticCodeCatalogHandle = lint.NewCodeCatalogHandle(
 		ModuleName:        "Real Virtuality Configs",
 		ModuleDescription: "Lint rules for Real Virtuality config lexer, parser and preprocessor flows.",
 		ScopeDescriptions: map[lint.Stage]string{
-			"lex":        "Lexer diagnostics.",
-			"parse":      "Parser diagnostics.",
-			"preprocess": "Preprocessor diagnostics.",
+			"lex":        "Tokenization diagnostics for invalid characters and unfinished literals.",
+			"parse":      "Grammar and structure diagnostics for classes, assignments, arrays, and enums.",
+			"preprocess": "Directive/macro/include diagnostics for preprocessing and conditional evaluation.",
 		},
 	},
 	diagnosticCatalog,

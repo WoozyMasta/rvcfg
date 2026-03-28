@@ -16,120 +16,189 @@ func withDescription(spec lint.CodeSpec, description string) lint.CodeSpec {
 
 // diagnosticCatalog stores stable diagnostics metadata table.
 var diagnosticCatalog = []lint.CodeSpec{
-	lint.WarningCodeSpec(
-		CodeLexUnexpectedCharacter,
-		StageLex,
-		"unexpected character",
+	withDescription(
+		lint.WarningCodeSpec(
+			CodeLexUnexpectedCharacter,
+			StageLex,
+			"unexpected character",
+		),
+		"Source contains byte sequence that does not belong to config token syntax.",
 	),
-	lint.ErrorCodeSpec(
-		CodeLexUnterminatedString,
-		StageLex,
-		"unterminated string literal",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeLexUnterminatedString,
+			StageLex,
+			"unterminated string literal",
+		),
+		"String starts with quote but does not have valid closing quote on the same logical line.",
 	),
-	lint.ErrorCodeSpec(
-		CodeLexUnterminatedBlockComment,
-		StageLex,
-		"unterminated block comment",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeLexUnterminatedBlockComment,
+			StageLex,
+			"unterminated block comment",
+		),
+		"Block comment opened with /* is not closed with */ before end of file.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParUnexpectedToken,
-		StageParse,
-		"unexpected token",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParUnexpectedToken,
+			StageParse,
+			"unexpected token",
+		),
+		"Token order does not match grammar for current parser context.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedClassName,
-		StageParse,
-		"expected class name",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedClassName,
+			StageParse,
+			"expected class name",
+		),
+		"Class declaration must provide one identifier after class keyword.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedClassBodyOrSemicolon,
-		StageParse,
-		"expected class body or semicolon",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedClassBodyOrSemicolon,
+			StageParse,
+			"expected class body or semicolon",
+		),
+		"Class declaration must be either forward declaration with semicolon or class body in braces.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedClassClosingBrace,
-		StageParse,
-		"expected closing brace for class body",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedClassClosingBrace,
+			StageParse,
+			"expected closing brace for class body",
+		),
+		"Class body was opened but closing } token was not found at the expected boundary.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParMissingClassSemicolon,
-		StageParse,
-		"missing semicolon after class declaration",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParMissingClassSemicolon,
+			StageParse,
+			"missing semicolon after class declaration",
+		),
+		"Class declaration must end with semicolon after closing brace.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedDeleteName,
-		StageParse,
-		"expected name after `delete`",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedDeleteName,
+			StageParse,
+			"expected name after `delete`",
+		),
+		"Delete statement must target one identifier.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParMissingDeleteSemicolon,
-		StageParse,
-		"missing semicolon after delete declaration",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParMissingDeleteSemicolon,
+			StageParse,
+			"missing semicolon after delete declaration",
+		),
+		"Delete statement must end with semicolon.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedExternName,
-		StageParse,
-		"expected `extern` declaration name",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedExternName,
+			StageParse,
+			"expected `extern` declaration name",
+		),
+		"Extern declaration must provide one symbol name.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParMissingExternSemicolon,
-		StageParse,
-		"missing semicolon after extern declaration",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParMissingExternSemicolon,
+			StageParse,
+			"missing semicolon after extern declaration",
+		),
+		"Extern declaration must end with semicolon.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedArrayRightBracket,
-		StageParse,
-		"expected right bracket in array assignment target",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedArrayRightBracket,
+			StageParse,
+			"expected right bracket in array assignment target",
+		),
+		"Array assignment target must use [] suffix with closing right bracket.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedArrayAssignOperator,
-		StageParse,
-		"expected assignment operator in array assignment",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedArrayAssignOperator,
+			StageParse,
+			"expected assignment operator in array assignment",
+		),
+		"Array assignment expects = or += operator after target.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParMissingArrayAssignSemicolon,
-		StageParse,
-		"missing semicolon after array assignment",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParMissingArrayAssignSemicolon,
+			StageParse,
+			"missing semicolon after array assignment",
+		),
+		"Array assignment statement must end with semicolon.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedAssign,
-		StageParse,
-		"expected assignment operator",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedAssign,
+			StageParse,
+			"expected assignment operator",
+		),
+		"Property assignment expects = operator after left-hand identifier.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParMissingAssignSemicolon,
-		StageParse,
-		"missing semicolon after assignment",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParMissingAssignSemicolon,
+			StageParse,
+			"missing semicolon after assignment",
+		),
+		"Property assignment statement must end with semicolon.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedValueBeforeEOF,
-		StageParse,
-		"expected value before end of file",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedValueBeforeEOF,
+			StageParse,
+			"expected value before end of file",
+		),
+		"Parser reached end of file where value expression was required.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedValue,
-		StageParse,
-		"expected value",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedValue,
+			StageParse,
+			"expected value",
+		),
+		"Assignment or array element requires scalar or array value.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedScalarValue,
-		StageParse,
-		"expected scalar value",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedScalarValue,
+			StageParse,
+			"expected scalar value",
+		),
+		"Scalar expression is empty or cannot be extracted from token range.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParUnterminatedArrayLiteral,
-		StageParse,
-		"unterminated array literal",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParUnterminatedArrayLiteral,
+			StageParse,
+			"unterminated array literal",
+		),
+		"Array literal opened with { but matching } was not found.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedArrayDelimiter,
-		StageParse,
-		"expected comma or right brace in array literal",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedArrayDelimiter,
+			StageParse,
+			"expected comma or right brace in array literal",
+		),
+		"Array elements must be separated by comma and array must end with right brace.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParStrictDigitLeadingClassName,
-		StageParse,
-		"class-like names must not start with digit in strict mode",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParStrictDigitLeadingClassName,
+			StageParse,
+			"class-like names must not start with digit in strict mode",
+		),
+		"Strict parser mode rejects declarations whose class-like names start with digits.",
 	),
 	withDescription(
 		lint.WarningCodeSpec(
@@ -141,25 +210,37 @@ var diagnosticCatalog = []lint.CodeSpec{
 			"declaration. Keep semicolons explicit to avoid parser recovery "+
 			"differences between tools.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedEnumBody,
-		StageParse,
-		"expected enum body",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedEnumBody,
+			StageParse,
+			"expected enum body",
+		),
+		"Enum declaration must contain body enclosed in braces.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedEnumItemName,
-		StageParse,
-		"expected enum item name",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedEnumItemName,
+			StageParse,
+			"expected enum item name",
+		),
+		"Enum item must start with one identifier name.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParExpectedEnumDelimiter,
-		StageParse,
-		"expected enum item delimiter",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParExpectedEnumDelimiter,
+			StageParse,
+			"expected enum item delimiter",
+		),
+		"Enum items must be separated by comma or terminated by closing brace.",
 	),
-	lint.ErrorCodeSpec(
-		CodeParMissingEnumSemicolon,
-		StageParse,
-		"missing semicolon after enum declaration",
+	withDescription(
+		lint.ErrorCodeSpec(
+			CodeParMissingEnumSemicolon,
+			StageParse,
+			"missing semicolon after enum declaration",
+		),
+		"Enum declaration must end with semicolon after closing brace.",
 	),
 	withDescription(
 		lint.InfoCodeSpec(
