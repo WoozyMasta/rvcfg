@@ -13,6 +13,27 @@ and this project adheres to [Semantic Versioning][].
 ### Removed
 -->
 
+## [0.3.0][] - 2026-03-29
+
+### Added
+
+* Lint subsystem based on `lintkit` with rule catalog
+  and generated diagnostics snapshot (`rules.yaml`).
+* Public diagnostics catalog/docs updates for lint
+  and parser/runtime diagnostics.
+
+### Changed
+
+* Lexer and token internals were reworked for a new token/position model.
+* Lint architecture and rule wiring were redesigned;
+  lint-related APIs and contracts were updated.
+* Diagnostic model, codes, and related function contracts were revised
+  for new lint/parse pipeline.
+* Parser/process and source-map flows were updated
+  to match new lexer/lint contracts.
+
+[0.3.0]: https://github.com/WoozyMasta/rvcfg/compare/v0.2.0...v0.3.0
+
 ## [0.2.0][] - 2026-03-17
 
 ### Added
