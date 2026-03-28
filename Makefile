@@ -116,8 +116,8 @@ release-notes:
 
 diag-doc:
 	$(LINTKIT) snapshot -f yaml rules.yaml
-	$(LINTKIT) doc -t table rules.yaml DIAGNOSTICS.md
+	$(LINTKIT) doc -t table rules.yaml RULES.md
 
 diag-doc-check:
 	$(LINTKIT) snapshot -cf yaml rules.yaml
-	$(LINTKIT) doc -ct table rules.yaml DIAGNOSTICS.md
+	$(LINTKIT) doc -ct table rules.yaml RULES.md

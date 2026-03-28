@@ -10,6 +10,7 @@ DayZ / Real Virtuality config-like text sources
 * AST with classes, properties, arrays, extern/delete, and enum declarations.
 * Deterministic formatter with configurable indentation and soft array wrapping.
 * Query helpers for walking statements/classes and building external lint rules.
+* Built-in lint diagnostics and rule catalog [RULES.md](RULES.md).
 
 ## Install
 
@@ -188,8 +189,9 @@ spec, ok := rvcfg.DiagnosticByCode(rvcfg.CodeParUnexpectedToken)
 _, _, _ = all, spec, ok
 ```
 
-All diagnostic codes are documented in the full registry:
-[DIAGNOSTICS.md](DIAGNOSTICS.md).
+Lint rules are available as a machine-readable snapshot in
+[rules.yaml](rules.yaml), and detailed rule documentation is provided in
+[RULES.md](RULES.md).
 
 ## lintkit integration
 
@@ -235,6 +237,5 @@ if err != nil {
 _ = result
 ```
 
-Exported short code format uses catalog prefix `CFG` + numeric code.
+Exported short code format uses catalog prefix `RVCFG` + numeric code.
 Rule IDs use semantic form `rvcfg.<stage>.<description-slug>`.
-
