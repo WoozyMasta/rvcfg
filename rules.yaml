@@ -6,161 +6,183 @@ rules:
   - id: rvcfg.lex.unexpected-character
     module: rvcfg
     scope: lex
-    scope_description: Lexer diagnostics.
+    scope_description: Tokenization diagnostics for invalid characters and unfinished literals.
     code: RVCFG1001
     message: unexpected character
+    description: Source contains byte sequence that does not belong to config token syntax.
     default_severity: warning
   - id: rvcfg.lex.unterminated-string-literal
     module: rvcfg
     scope: lex
-    scope_description: Lexer diagnostics.
+    scope_description: Tokenization diagnostics for invalid characters and unfinished literals.
     code: RVCFG1002
     message: unterminated string literal
+    description: String starts with quote but does not have valid closing quote on the same logical line.
     default_severity: error
   - id: rvcfg.lex.unterminated-block-comment
     module: rvcfg
     scope: lex
-    scope_description: Lexer diagnostics.
+    scope_description: Tokenization diagnostics for invalid characters and unfinished literals.
     code: RVCFG1003
     message: unterminated block comment
+    description: Block comment opened with /* is not closed with */ before end of file.
     default_severity: error
   - id: rvcfg.parse.unexpected-token
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2001
     message: unexpected token
+    description: Token order does not match grammar for current parser context.
     default_severity: error
   - id: rvcfg.parse.expected-class-name
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2002
     message: expected class name
+    description: Class declaration must provide one identifier after class keyword.
     default_severity: error
   - id: rvcfg.parse.expected-class-body-or-semicolon
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2003
     message: expected class body or semicolon
+    description: Class declaration must be either forward declaration with semicolon or class body in braces.
     default_severity: error
   - id: rvcfg.parse.expected-closing-brace-for-class-body
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2004
     message: expected closing brace for class body
+    description: Class body was opened but closing } token was not found at the expected boundary.
     default_severity: error
   - id: rvcfg.parse.missing-semicolon-after-class-declaration
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2005
     message: missing semicolon after class declaration
+    description: Class declaration must end with semicolon after closing brace.
     default_severity: error
   - id: rvcfg.parse.expected-name-after-delete
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2006
     message: expected name after `delete`
+    description: Delete statement must target one identifier.
     default_severity: error
   - id: rvcfg.parse.missing-semicolon-after-delete-declaration
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2007
     message: missing semicolon after delete declaration
+    description: Delete statement must end with semicolon.
     default_severity: error
   - id: rvcfg.parse.expected-extern-declaration-name
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2008
     message: expected `extern` declaration name
+    description: Extern declaration must provide one symbol name.
     default_severity: error
   - id: rvcfg.parse.missing-semicolon-after-extern-declaration
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2009
     message: missing semicolon after extern declaration
+    description: Extern declaration must end with semicolon.
     default_severity: error
   - id: rvcfg.parse.expected-right-bracket-in-array-assignment-target
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2010
     message: expected right bracket in array assignment target
+    description: Array assignment target must use [] suffix with closing right bracket.
     default_severity: error
   - id: rvcfg.parse.expected-assignment-operator-in-array-assignment
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2011
     message: expected assignment operator in array assignment
+    description: Array assignment expects = or += operator after target.
     default_severity: error
   - id: rvcfg.parse.missing-semicolon-after-array-assignment
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2012
     message: missing semicolon after array assignment
+    description: Array assignment statement must end with semicolon.
     default_severity: error
   - id: rvcfg.parse.expected-assignment-operator
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2013
     message: expected assignment operator
+    description: Property assignment expects = operator after left-hand identifier.
     default_severity: error
   - id: rvcfg.parse.missing-semicolon-after-assignment
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2014
     message: missing semicolon after assignment
+    description: Property assignment statement must end with semicolon.
     default_severity: error
   - id: rvcfg.parse.expected-value-before-end-of-file
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2015
     message: expected value before end of file
+    description: Parser reached end of file where value expression was required.
     default_severity: error
   - id: rvcfg.parse.expected-value
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2016
     message: expected value
+    description: Assignment or array element requires scalar or array value.
     default_severity: error
   - id: rvcfg.parse.expected-scalar-value
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2017
     message: expected scalar value
+    description: Scalar expression is empty or cannot be extracted from token range.
     default_severity: error
   - id: rvcfg.parse.unterminated-array-literal
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2018
     message: unterminated array literal
+    description: Array literal opened with { but matching } was not found.
     default_severity: error
   - id: rvcfg.parse.expected-comma-or-right-brace-in-array-literal
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2019
     message: expected comma or right brace in array literal
+    description: Array elements must be separated by comma and array must end with right brace.
     default_severity: error
   - id: rvcfg.parse.autofix-inserted-missing-class-semicolon
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2020
     message: autofix inserted missing class semicolon
     description: Parser recovered by inserting a missing semicolon after class declaration. Keep semicolons explicit to avoid parser recovery differences between tools.
@@ -168,42 +190,47 @@ rules:
   - id: rvcfg.parse.expected-enum-body
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2021
     message: expected enum body
+    description: Enum declaration must contain body enclosed in braces.
     default_severity: error
   - id: rvcfg.parse.expected-enum-item-name
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2022
     message: expected enum item name
+    description: Enum item must start with one identifier name.
     default_severity: error
   - id: rvcfg.parse.expected-enum-item-delimiter
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2023
     message: expected enum item delimiter
+    description: Enum items must be separated by comma or terminated by closing brace.
     default_severity: error
   - id: rvcfg.parse.missing-semicolon-after-enum-declaration
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2024
     message: missing semicolon after enum declaration
+    description: Enum declaration must end with semicolon after closing brace.
     default_severity: error
   - id: rvcfg.parse.class-like-names-must-not-start-with-digit-in-strict-mode
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2025
     message: class-like names must not start with digit in strict mode
+    description: Strict parser mode rejects declarations whose class-like names start with digits.
     default_severity: error
   - id: rvcfg.parse.nested-class-in-derived-class-has-no-explicit-base
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2026
     message: nested class in derived class has no explicit base
     description: This can replace inherited subtree instead of extending it. Add explicit inheritance to make merge behavior predictable.
@@ -211,7 +238,7 @@ rules:
   - id: rvcfg.parse.scalar-may-be-unsupported-by-rap-encoder
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2027
     message: scalar may be unsupported by RAP encoder
     description: Scalar token sequence cannot be classified into RAP scalar subtype safely. Use quoted string, integer, float, or identifier-like scalar form.
@@ -219,7 +246,7 @@ rules:
   - id: rvcfg.parse.float-loses-precision-in-rap-float32-conversion
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2028
     message: float loses precision in RAP float32 conversion
     description: RAP stores float scalars as float32. Parsed value differs noticeably after float64->float32 conversion.
@@ -227,7 +254,7 @@ rules:
   - id: rvcfg.parse.float-may-collapse-to-zero-in-rap-float32-conversion
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2029
     message: float may collapse to zero in RAP float32 conversion
     description: Very small non-zero float becomes zero when encoded as RAP float32.
@@ -235,7 +262,7 @@ rules:
   - id: rvcfg.parse.string-escape-style-may-be-incompatible-with-bi-cfgconvert
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2030
     message: string escape style may be incompatible with BI/CfgConvert
     description: Detected C-style backslash quote escape in string scalar. Prefer doubled quote escaping for BI/CfgConvert compatibility.
@@ -243,7 +270,7 @@ rules:
   - id: rvcfg.parse.extreme-float-magnitude-may-normalize-unexpectedly-in-rap-round-trip
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2031
     message: extreme float magnitude may normalize unexpectedly in RAP round-trip
     description: Extreme exponent/magnitude float can look unstable in text output after RAP float32 conversion.
@@ -251,7 +278,7 @@ rules:
   - id: rvcfg.parse.float-overflows-to-inf-in-rap-float32-conversion
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2032
     message: float overflows to Inf in RAP float32 conversion
     description: Float literal exceeds float32 finite range and becomes +Inf/-Inf during RAP numeric encoding.
@@ -259,7 +286,7 @@ rules:
   - id: rvcfg.parse.non-finite-float-literal-is-unsafe-for-rap-numeric-encoding
     module: rvcfg
     scope: parse
-    scope_description: Parser diagnostics.
+    scope_description: Grammar and structure diagnostics for classes, assignments, arrays, and enums.
     code: RVCFG2033
     message: non-finite float literal is unsafe for RAP numeric encoding
     description: Detected NaN/Inf-like scalar literal. RAP numeric scalar encoding expects finite values.
@@ -267,7 +294,7 @@ rules:
   - id: rvcfg.preprocess.include-target-not-found-or-unreadable
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3001
     message: include target not found or unreadable
     description: Check include path, include roots, and file access permissions.
@@ -275,7 +302,7 @@ rules:
   - id: rvcfg.preprocess.unsupported-config-intrinsic
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3002
     message: unsupported config intrinsic
     description: Current preprocessor mode does not support this intrinsic (for example `__EXEC` or `__EVAL`). Remove it or preprocess with toolchain that supports this intrinsic.
@@ -283,7 +310,7 @@ rules:
   - id: rvcfg.preprocess.macro-expansion-failure
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3003
     message: macro expansion failure
     description: Usually caused by invalid invocation, argument count mismatch, or recursive expansion limit. Check macro definition and call site.
@@ -291,7 +318,7 @@ rules:
   - id: rvcfg.preprocess.unterminated-conditional-block
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3004
     message: unterminated conditional block
     description: Add missing `#endif` for active `#if` or `#ifdef` frame.
@@ -299,7 +326,7 @@ rules:
   - id: rvcfg.preprocess.invalid-include-syntax
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3005
     message: invalid include syntax
     description: Use valid include directive format and quote style expected by this parser mode.
@@ -307,7 +334,7 @@ rules:
   - id: rvcfg.preprocess.unexpected-elif-directive
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3006
     message: unexpected elif directive
     description: Ensure `#elif` is placed after matching `#if` and before `#endif`.
@@ -315,7 +342,7 @@ rules:
   - id: rvcfg.preprocess.unexpected-else-directive
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3007
     message: unexpected else directive
     description: 'Check conditional directive structure: `#else` must be inside active block and only once per frame.'
@@ -323,7 +350,7 @@ rules:
   - id: rvcfg.preprocess.unexpected-endif-directive
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3008
     message: unexpected endif directive
     description: Remove stray `#endif` or restore missing opening directive.
@@ -331,7 +358,7 @@ rules:
   - id: rvcfg.preprocess.error-directive-triggered
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3009
     message: '`#error` directive triggered'
     description: Source contains explicit `#error` directive and preprocessing stops. Resolve condition or remove debug guard.
@@ -339,7 +366,7 @@ rules:
   - id: rvcfg.preprocess.unsupported-directive
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3011
     message: unsupported directive
     description: Directive token is recognized as preprocessor command but not supported by this implementation mode.
@@ -347,7 +374,7 @@ rules:
   - id: rvcfg.preprocess.missing-macro-name-in-define
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3012
     message: missing macro name in define
     description: Add valid identifier after `#define` keyword.
@@ -355,7 +382,7 @@ rules:
   - id: rvcfg.preprocess.invalid-macro-name-in-define
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3013
     message: invalid macro name in define
     description: Macro names must match parser identifier rules.
@@ -363,7 +390,7 @@ rules:
   - id: rvcfg.preprocess.unterminated-macro-parameter-list
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3014
     message: unterminated macro parameter list
     description: Add missing closing parenthesis in function-like `#define`.
@@ -371,7 +398,7 @@ rules:
   - id: rvcfg.preprocess.macro-redefinition
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3015
     message: macro redefinition
     description: Later definition overrides previous one in current preprocessor state.
@@ -379,7 +406,7 @@ rules:
   - id: rvcfg.preprocess.unresolved-macro-like-invocation
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3016
     message: unresolved macro-like invocation
     description: Invocation looks like macro call but no matching definition was found. Check macro name, scope, and include order.
@@ -387,7 +414,7 @@ rules:
   - id: rvcfg.preprocess.unsupported-has-include-in-conditional-directive
     module: rvcfg
     scope: preprocess
-    scope_description: Preprocessor diagnostics.
+    scope_description: Directive/macro/include diagnostics for preprocessing and conditional evaluation.
     code: RVCFG3017
     message: unsupported `__has_include` in conditional directive
     description: Conditional expression uses `__has_include`, which is not supported in this preprocessor mode.

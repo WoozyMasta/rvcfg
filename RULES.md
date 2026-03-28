@@ -12,13 +12,26 @@ Real Virtuality Configs
 
 > Lint rules for Real Virtuality config lexer, parser and preprocessor flows.
 
+Rule groups for `rvcfg`:
+
+* [lex](#lex)
+* [parse](#parse)
+* [preprocess](#preprocess)
+
 ### lex
 
-> Lexer diagnostics.
+> Tokenization diagnostics for invalid characters and unfinished literals.
+
+Codes:
+[RVCFG1001](#rvcfg1001),
+[RVCFG1002](#rvcfg1002),
+[RVCFG1003](#rvcfg1003),
 
 #### `RVCFG1001`
 
 Unexpected character
+
+> Source contains byte sequence that does not belong to config token syntax.
 
 | Field | Value |
 | --- | --- |
@@ -31,6 +44,9 @@ Unexpected character
 
 Unterminated string literal
 
+> String starts with quote but does not have valid closing quote on the same
+> logical line.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.lex.unterminated-string-literal` |
@@ -42,6 +58,8 @@ Unterminated string literal
 
 Unterminated block comment
 
+> Block comment opened with /* is not closed with */ before end of file.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.lex.unterminated-block-comment` |
@@ -51,11 +69,48 @@ Unterminated block comment
 
 ### parse
 
-> Parser diagnostics.
+> Grammar and structure diagnostics for classes, assignments, arrays, and enums.
+
+Codes:
+[RVCFG2001](#rvcfg2001),
+[RVCFG2002](#rvcfg2002),
+[RVCFG2003](#rvcfg2003),
+[RVCFG2004](#rvcfg2004),
+[RVCFG2005](#rvcfg2005),
+[RVCFG2006](#rvcfg2006),
+[RVCFG2007](#rvcfg2007),
+[RVCFG2008](#rvcfg2008),
+[RVCFG2009](#rvcfg2009),
+[RVCFG2010](#rvcfg2010),
+[RVCFG2011](#rvcfg2011),
+[RVCFG2012](#rvcfg2012),
+[RVCFG2013](#rvcfg2013),
+[RVCFG2014](#rvcfg2014),
+[RVCFG2015](#rvcfg2015),
+[RVCFG2016](#rvcfg2016),
+[RVCFG2017](#rvcfg2017),
+[RVCFG2018](#rvcfg2018),
+[RVCFG2019](#rvcfg2019),
+[RVCFG2020](#rvcfg2020),
+[RVCFG2021](#rvcfg2021),
+[RVCFG2022](#rvcfg2022),
+[RVCFG2023](#rvcfg2023),
+[RVCFG2024](#rvcfg2024),
+[RVCFG2025](#rvcfg2025),
+[RVCFG2026](#rvcfg2026),
+[RVCFG2027](#rvcfg2027),
+[RVCFG2028](#rvcfg2028),
+[RVCFG2029](#rvcfg2029),
+[RVCFG2030](#rvcfg2030),
+[RVCFG2031](#rvcfg2031),
+[RVCFG2032](#rvcfg2032),
+[RVCFG2033](#rvcfg2033),
 
 #### `RVCFG2001`
 
 Unexpected token
+
+> Token order does not match grammar for current parser context.
 
 | Field | Value |
 | --- | --- |
@@ -68,6 +123,8 @@ Unexpected token
 
 Expected class name
 
+> Class declaration must provide one identifier after class keyword.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.expected-class-name` |
@@ -78,6 +135,9 @@ Expected class name
 #### `RVCFG2003`
 
 Expected class body or semicolon
+
+> Class declaration must be either forward declaration with semicolon or class
+> body in braces.
 
 | Field | Value |
 | --- | --- |
@@ -90,6 +150,9 @@ Expected class body or semicolon
 
 Expected closing brace for class body
 
+> Class body was opened but closing } token was not found at the expected
+> boundary.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.expected-closing-brace-for-class-body` |
@@ -100,6 +163,8 @@ Expected closing brace for class body
 #### `RVCFG2005`
 
 Missing semicolon after class declaration
+
+> Class declaration must end with semicolon after closing brace.
 
 | Field | Value |
 | --- | --- |
@@ -112,6 +177,8 @@ Missing semicolon after class declaration
 
 Expected name after `delete`
 
+> Delete statement must target one identifier.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.expected-name-after-delete` |
@@ -122,6 +189,8 @@ Expected name after `delete`
 #### `RVCFG2007`
 
 Missing semicolon after delete declaration
+
+> Delete statement must end with semicolon.
 
 | Field | Value |
 | --- | --- |
@@ -134,6 +203,8 @@ Missing semicolon after delete declaration
 
 Expected `extern` declaration name
 
+> Extern declaration must provide one symbol name.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.expected-extern-declaration-name` |
@@ -144,6 +215,8 @@ Expected `extern` declaration name
 #### `RVCFG2009`
 
 Missing semicolon after extern declaration
+
+> Extern declaration must end with semicolon.
 
 | Field | Value |
 | --- | --- |
@@ -156,6 +229,8 @@ Missing semicolon after extern declaration
 
 Expected right bracket in array assignment target
 
+> Array assignment target must use [] suffix with closing right bracket.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.expected-right-bracket-in-array-assignment-target` |
@@ -166,6 +241,8 @@ Expected right bracket in array assignment target
 #### `RVCFG2011`
 
 Expected assignment operator in array assignment
+
+> Array assignment expects = or += operator after target.
 
 | Field | Value |
 | --- | --- |
@@ -178,6 +255,8 @@ Expected assignment operator in array assignment
 
 Missing semicolon after array assignment
 
+> Array assignment statement must end with semicolon.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.missing-semicolon-after-array-assignment` |
@@ -188,6 +267,8 @@ Missing semicolon after array assignment
 #### `RVCFG2013`
 
 Expected assignment operator
+
+> Property assignment expects = operator after left-hand identifier.
 
 | Field | Value |
 | --- | --- |
@@ -200,6 +281,8 @@ Expected assignment operator
 
 Missing semicolon after assignment
 
+> Property assignment statement must end with semicolon.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.missing-semicolon-after-assignment` |
@@ -210,6 +293,8 @@ Missing semicolon after assignment
 #### `RVCFG2015`
 
 Expected value before end of file
+
+> Parser reached end of file where value expression was required.
 
 | Field | Value |
 | --- | --- |
@@ -222,6 +307,8 @@ Expected value before end of file
 
 Expected value
 
+> Assignment or array element requires scalar or array value.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.expected-value` |
@@ -232,6 +319,8 @@ Expected value
 #### `RVCFG2017`
 
 Expected scalar value
+
+> Scalar expression is empty or cannot be extracted from token range.
 
 | Field | Value |
 | --- | --- |
@@ -244,6 +333,8 @@ Expected scalar value
 
 Unterminated array literal
 
+> Array literal opened with { but matching } was not found.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.unterminated-array-literal` |
@@ -254,6 +345,8 @@ Unterminated array literal
 #### `RVCFG2019`
 
 Expected comma or right brace in array literal
+
+> Array elements must be separated by comma and array must end with right brace.
 
 | Field | Value |
 | --- | --- |
@@ -280,6 +373,8 @@ Autofix inserted missing class semicolon
 
 Expected enum body
 
+> Enum declaration must contain body enclosed in braces.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.expected-enum-body` |
@@ -290,6 +385,8 @@ Expected enum body
 #### `RVCFG2022`
 
 Expected enum item name
+
+> Enum item must start with one identifier name.
 
 | Field | Value |
 | --- | --- |
@@ -302,6 +399,8 @@ Expected enum item name
 
 Expected enum item delimiter
 
+> Enum items must be separated by comma or terminated by closing brace.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.expected-enum-item-delimiter` |
@@ -313,6 +412,8 @@ Expected enum item delimiter
 
 Missing semicolon after enum declaration
 
+> Enum declaration must end with semicolon after closing brace.
+
 | Field | Value |
 | --- | --- |
 | Rule ID | `rvcfg.parse.missing-semicolon-after-enum-declaration` |
@@ -323,6 +424,9 @@ Missing semicolon after enum declaration
 #### `RVCFG2025`
 
 Class-like names must not start with digit in strict mode
+
+> Strict parser mode rejects declarations whose class-like names start with
+> digits.
 
 | Field | Value |
 | --- | --- |
@@ -444,7 +548,26 @@ Non-finite float literal is unsafe for RAP numeric encoding
 
 ### preprocess
 
-> Preprocessor diagnostics.
+> Directive/macro/include diagnostics for preprocessing and conditional
+> evaluation.
+
+Codes:
+[RVCFG3001](#rvcfg3001),
+[RVCFG3002](#rvcfg3002),
+[RVCFG3003](#rvcfg3003),
+[RVCFG3004](#rvcfg3004),
+[RVCFG3005](#rvcfg3005),
+[RVCFG3006](#rvcfg3006),
+[RVCFG3007](#rvcfg3007),
+[RVCFG3008](#rvcfg3008),
+[RVCFG3009](#rvcfg3009),
+[RVCFG3011](#rvcfg3011),
+[RVCFG3012](#rvcfg3012),
+[RVCFG3013](#rvcfg3013),
+[RVCFG3014](#rvcfg3014),
+[RVCFG3015](#rvcfg3015),
+[RVCFG3016](#rvcfg3016),
+[RVCFG3017](#rvcfg3017),
 
 #### `RVCFG3001`
 
