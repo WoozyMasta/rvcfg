@@ -558,10 +558,25 @@ func (l *lexer) keywordKindByRange(start int, end int) (TokenKind, bool) {
 // pos returns current scanner source position.
 func (l *lexer) pos() TokenPosition {
 	return TokenPosition{
-		Line:   uint32(l.line),
-		Column: uint32(l.column),
-		Offset: uint32(l.index),
+		Line:   compactPosValue(l.line),
+		Column: compactPosValue(l.column),
+		Offset: compactPosValue(l.index),
 	}
+}
+
+// compactPosValue converts int position component to uint32 with saturation.
+func compactPosValue(v int) uint32 {
+	if v <= 0 {
+		return 0
+	}
+
+	u := uint64(v)
+	maxUint32 := uint64(^uint32(0))
+	if u > maxUint32 {
+		return ^uint32(0)
+	}
+
+	return uint32(u)
 }
 
 // publicPos converts compact token position to public position with filename.
