@@ -16,7 +16,7 @@ Real Virtuality Configs
 
 > Lexer diagnostics.
 
-#### `CFG1001`
+#### `RVCFG1001`
 
 Unexpected character
 
@@ -27,7 +27,7 @@ Unexpected character
 | Severity | `warning` |
 | Enabled | `true` (implicit) |
 
-#### `CFG1002`
+#### `RVCFG1002`
 
 Unterminated string literal
 
@@ -38,7 +38,7 @@ Unterminated string literal
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG1003`
+#### `RVCFG1003`
 
 Unterminated block comment
 
@@ -53,7 +53,7 @@ Unterminated block comment
 
 > Parser diagnostics.
 
-#### `CFG2001`
+#### `RVCFG2001`
 
 Unexpected token
 
@@ -64,7 +64,7 @@ Unexpected token
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2002`
+#### `RVCFG2002`
 
 Expected class name
 
@@ -75,7 +75,7 @@ Expected class name
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2003`
+#### `RVCFG2003`
 
 Expected class body or semicolon
 
@@ -86,7 +86,7 @@ Expected class body or semicolon
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2004`
+#### `RVCFG2004`
 
 Expected closing brace for class body
 
@@ -97,7 +97,7 @@ Expected closing brace for class body
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2005`
+#### `RVCFG2005`
 
 Missing semicolon after class declaration
 
@@ -108,7 +108,7 @@ Missing semicolon after class declaration
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2006`
+#### `RVCFG2006`
 
 Expected name after `delete`
 
@@ -119,7 +119,7 @@ Expected name after `delete`
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2007`
+#### `RVCFG2007`
 
 Missing semicolon after delete declaration
 
@@ -130,7 +130,7 @@ Missing semicolon after delete declaration
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2008`
+#### `RVCFG2008`
 
 Expected `extern` declaration name
 
@@ -141,7 +141,7 @@ Expected `extern` declaration name
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2009`
+#### `RVCFG2009`
 
 Missing semicolon after extern declaration
 
@@ -152,7 +152,7 @@ Missing semicolon after extern declaration
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2010`
+#### `RVCFG2010`
 
 Expected right bracket in array assignment target
 
@@ -163,7 +163,7 @@ Expected right bracket in array assignment target
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2011`
+#### `RVCFG2011`
 
 Expected assignment operator in array assignment
 
@@ -174,7 +174,7 @@ Expected assignment operator in array assignment
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2012`
+#### `RVCFG2012`
 
 Missing semicolon after array assignment
 
@@ -185,7 +185,7 @@ Missing semicolon after array assignment
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2013`
+#### `RVCFG2013`
 
 Expected assignment operator
 
@@ -196,7 +196,7 @@ Expected assignment operator
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2014`
+#### `RVCFG2014`
 
 Missing semicolon after assignment
 
@@ -207,7 +207,7 @@ Missing semicolon after assignment
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2015`
+#### `RVCFG2015`
 
 Expected value before end of file
 
@@ -218,7 +218,7 @@ Expected value before end of file
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2016`
+#### `RVCFG2016`
 
 Expected value
 
@@ -229,7 +229,7 @@ Expected value
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2017`
+#### `RVCFG2017`
 
 Expected scalar value
 
@@ -240,7 +240,7 @@ Expected scalar value
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2018`
+#### `RVCFG2018`
 
 Unterminated array literal
 
@@ -251,7 +251,7 @@ Unterminated array literal
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2019`
+#### `RVCFG2019`
 
 Expected comma or right brace in array literal
 
@@ -262,7 +262,7 @@ Expected comma or right brace in array literal
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2020`
+#### `RVCFG2020`
 
 Autofix inserted missing class semicolon
 
@@ -276,7 +276,7 @@ Autofix inserted missing class semicolon
 | Severity | `warning` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2021`
+#### `RVCFG2021`
 
 Expected enum body
 
@@ -287,7 +287,7 @@ Expected enum body
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2022`
+#### `RVCFG2022`
 
 Expected enum item name
 
@@ -298,7 +298,7 @@ Expected enum item name
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2023`
+#### `RVCFG2023`
 
 Expected enum item delimiter
 
@@ -309,7 +309,7 @@ Expected enum item delimiter
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2024`
+#### `RVCFG2024`
 
 Missing semicolon after enum declaration
 
@@ -320,7 +320,7 @@ Missing semicolon after enum declaration
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2025`
+#### `RVCFG2025`
 
 Class-like names must not start with digit in strict mode
 
@@ -331,7 +331,7 @@ Class-like names must not start with digit in strict mode
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2026`
+#### `RVCFG2026`
 
 Nested class in derived class has no explicit base
 
@@ -345,7 +345,7 @@ Nested class in derived class has no explicit base
 | Severity | `info` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2027`
+#### `RVCFG2027`
 
 Scalar may be unsupported by RAP encoder
 
@@ -359,7 +359,7 @@ Scalar may be unsupported by RAP encoder
 | Severity | `warning` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2028`
+#### `RVCFG2028`
 
 Float loses precision in RAP float32 conversion
 
@@ -373,7 +373,7 @@ Float loses precision in RAP float32 conversion
 | Severity | `warning` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2029`
+#### `RVCFG2029`
 
 Float may collapse to zero in RAP float32 conversion
 
@@ -386,7 +386,7 @@ Float may collapse to zero in RAP float32 conversion
 | Severity | `warning` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2030`
+#### `RVCFG2030`
 
 String escape style may be incompatible with BI/CfgConvert
 
@@ -400,7 +400,7 @@ String escape style may be incompatible with BI/CfgConvert
 | Severity | `warning` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2031`
+#### `RVCFG2031`
 
 Extreme float magnitude may normalize unexpectedly in RAP round-trip
 
@@ -414,7 +414,7 @@ Extreme float magnitude may normalize unexpectedly in RAP round-trip
 | Severity | `info` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2032`
+#### `RVCFG2032`
 
 Float overflows to Inf in RAP float32 conversion
 
@@ -428,7 +428,7 @@ Float overflows to Inf in RAP float32 conversion
 | Severity | `warning` |
 | Enabled | `true` (implicit) |
 
-#### `CFG2033`
+#### `RVCFG2033`
 
 Non-finite float literal is unsafe for RAP numeric encoding
 
@@ -446,7 +446,7 @@ Non-finite float literal is unsafe for RAP numeric encoding
 
 > Preprocessor diagnostics.
 
-#### `CFG3001`
+#### `RVCFG3001`
 
 Include target not found or unreadable
 
@@ -459,7 +459,7 @@ Include target not found or unreadable
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3002`
+#### `RVCFG3002`
 
 Unsupported config intrinsic
 
@@ -474,7 +474,7 @@ Unsupported config intrinsic
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3003`
+#### `RVCFG3003`
 
 Macro expansion failure
 
@@ -488,7 +488,7 @@ Macro expansion failure
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3004`
+#### `RVCFG3004`
 
 Unterminated conditional block
 
@@ -501,7 +501,7 @@ Unterminated conditional block
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3005`
+#### `RVCFG3005`
 
 Invalid include syntax
 
@@ -514,7 +514,7 @@ Invalid include syntax
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3006`
+#### `RVCFG3006`
 
 Unexpected elif directive
 
@@ -527,7 +527,7 @@ Unexpected elif directive
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3007`
+#### `RVCFG3007`
 
 Unexpected else directive
 
@@ -541,7 +541,7 @@ Unexpected else directive
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3008`
+#### `RVCFG3008`
 
 Unexpected endif directive
 
@@ -554,7 +554,7 @@ Unexpected endif directive
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3009`
+#### `RVCFG3009`
 
 `#Error` directive triggered
 
@@ -568,7 +568,7 @@ Unexpected endif directive
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3011`
+#### `RVCFG3011`
 
 Unsupported directive
 
@@ -582,7 +582,7 @@ Unsupported directive
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3012`
+#### `RVCFG3012`
 
 Missing macro name in define
 
@@ -595,7 +595,7 @@ Missing macro name in define
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3013`
+#### `RVCFG3013`
 
 Invalid macro name in define
 
@@ -608,7 +608,7 @@ Invalid macro name in define
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3014`
+#### `RVCFG3014`
 
 Unterminated macro parameter list
 
@@ -621,7 +621,7 @@ Unterminated macro parameter list
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3015`
+#### `RVCFG3015`
 
 Macro redefinition
 
@@ -634,7 +634,7 @@ Macro redefinition
 | Severity | `warning` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3016`
+#### `RVCFG3016`
 
 Unresolved macro-like invocation
 
@@ -648,7 +648,7 @@ Unresolved macro-like invocation
 | Severity | `error` |
 | Enabled | `true` (implicit) |
 
-#### `CFG3017`
+#### `RVCFG3017`
 
 Unsupported `__has_include` in conditional directive
 

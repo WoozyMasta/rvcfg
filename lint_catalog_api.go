@@ -16,7 +16,7 @@ const (
 var diagnosticCodeCatalogHandle = lint.NewCodeCatalogHandle(
 	lint.CodeCatalogConfig{
 		Module:            Module,
-		CodePrefix:        "CFG",
+		CodePrefix:        "RVCFG",
 		ModuleName:        "Real Virtuality Configs",
 		ModuleDescription: "Lint rules for Real Virtuality config lexer, parser and preprocessor flows.",
 		ScopeDescriptions: map[lint.Stage]string{
