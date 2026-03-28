@@ -7,6 +7,8 @@ package rvcfg
 import (
 	"fmt"
 	"os"
+
+	"github.com/woozymasta/lintkit/lint"
 )
 
 var (
@@ -124,8 +126,26 @@ func ParseTokens(filename string, data []byte, tokens []Token, opts ParseOptions
 		Diagnostics: p.diagnostics,
 	}
 
-	for _, d := range p.diagnostics {
-		if d.Severity == SeverityError {
+	hasError := false
+	for _, d := range result.Diagnostics {
+		if d.Severity != lint.SeverityError {
+			continue
+		}
+
+		hasError = true
+
+		break
+	}
+
+	if !hasError {
+		result.Diagnostics = append(
+			result.Diagnostics,
+			collectInheritanceHints(result.File)...,
+		)
+	}
+
+	for _, d := range result.Diagnostics {
+		if d.Severity == lint.SeverityError {
 			return result, ErrParse
 		}
 	}

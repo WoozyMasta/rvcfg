@@ -4,7 +4,11 @@
 
 package rvcfg
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/woozymasta/lintkit/lint"
+)
 
 // StatementRef stores statement pointer with class scope path and source span.
 type StatementRef struct {
@@ -16,10 +20,10 @@ type StatementRef struct {
 	Statement *Statement `json:"statement,omitempty" yaml:"statement,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
+	Start lint.Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitzero" yaml:"end,omitempty"`
+	End lint.Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // WalkClasses iterates class declarations in source order.

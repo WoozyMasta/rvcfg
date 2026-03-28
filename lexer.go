@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"unicode"
+
+	"github.com/woozymasta/lintkit/lint"
 )
 
 var (
@@ -55,7 +57,7 @@ func LexBytesWithOptions(filename string, data []byte, opts LexOptions) ([]Token
 	tokens, diagnostics := l.scan()
 
 	for _, d := range diagnostics {
-		if d.Severity == SeverityError {
+		if d.Severity == lint.SeverityError {
 			return tokens, diagnostics, ErrLex
 		}
 	}
@@ -256,7 +258,7 @@ func (l *lexer) scan() ([]Token, []Diagnostic) {
 			diagnostics = append(diagnostics, Diagnostic{
 				Code:     CodeLexUnexpectedCharacter,
 				Message:  fmt.Sprintf("unexpected character %q", ch),
-				Severity: SeverityWarning,
+				Severity: lint.SeverityWarning,
 				Start:    start,
 				End:      l.pos(),
 			})
@@ -401,7 +403,7 @@ func (l *lexer) scanString() (Token, *Diagnostic) {
 			diag := Diagnostic{
 				Code:     CodeLexUnterminatedString,
 				Message:  "unterminated string literal",
-				Severity: SeverityError,
+				Severity: lint.SeverityError,
 				Start:    start,
 				End:      l.pos(),
 			}
@@ -415,7 +417,7 @@ func (l *lexer) scanString() (Token, *Diagnostic) {
 	diag := Diagnostic{
 		Code:     CodeLexUnterminatedString,
 		Message:  "unterminated string literal",
-		Severity: SeverityError,
+		Severity: lint.SeverityError,
 		Start:    start,
 		End:      l.pos(),
 	}
@@ -470,7 +472,7 @@ func (l *lexer) scanBlockComment() (Token, *Diagnostic) {
 	diag := Diagnostic{
 		Code:     CodeLexUnterminatedBlockComment,
 		Message:  "unterminated block comment",
-		Severity: SeverityError,
+		Severity: lint.SeverityError,
 		Start:    start,
 		End:      l.pos(),
 	}
@@ -515,7 +517,7 @@ func (l *lexer) consumeNewline() {
 }
 
 // makeToken builds token from start and current scanner position.
-func (l *lexer) makeToken(kind TokenKind, start Position, startIdx int) Token {
+func (l *lexer) makeToken(kind TokenKind, start lint.Position, startIdx int) Token {
 	end := l.pos()
 	if end.Offset > start.Offset {
 		end.Offset--
@@ -561,8 +563,8 @@ func (l *lexer) keywordKindByRange(start int, end int) (TokenKind, bool) {
 }
 
 // pos returns current scanner source position.
-func (l *lexer) pos() Position {
-	return Position{
+func (l *lexer) pos() lint.Position {
+	return lint.Position{
 		File:   l.filename,
 		Line:   l.line,
 		Column: l.column,

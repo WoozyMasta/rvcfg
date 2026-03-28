@@ -4,6 +4,8 @@
 
 package rvcfg
 
+import "github.com/woozymasta/lintkit/lint"
+
 // NodeKind identifies AST statement node type.
 type NodeKind string
 
@@ -47,10 +49,10 @@ type File struct {
 	Statements []Statement `json:"statements,omitempty" yaml:"statements,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
+	Start lint.Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitzero" yaml:"end,omitempty"`
+	End lint.Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // Statement stores one top-level or class-body declaration.
@@ -86,10 +88,10 @@ type Statement struct {
 	TrailingComments []Comment `json:"trailing_comments,omitempty" yaml:"trailing_comments,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
+	Start lint.Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitzero" yaml:"end,omitempty"`
+	End lint.Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // Comment stores original comment token text and position.
@@ -98,10 +100,10 @@ type Comment struct {
 	Text string `json:"text,omitempty" yaml:"text,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
+	Start lint.Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitzero" yaml:"end,omitempty"`
+	End lint.Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // ClassDecl describes class declaration body or forward declaration.
@@ -185,8 +187,8 @@ type Value struct {
 	Elements []Value `json:"elements,omitzero" yaml:"elements,omitempty"`
 
 	// Start is source start position.
-	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
+	Start lint.Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is source end position.
-	End Position `json:"end,omitzero" yaml:"end,omitempty"`
+	End lint.Position `json:"end,omitzero" yaml:"end,omitempty"`
 }

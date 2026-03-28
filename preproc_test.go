@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/woozymasta/lintkit/lint"
 )
 
 // testIncludeResolver maps include names to concrete file paths for resolver tests.
@@ -60,7 +62,7 @@ func TestPreprocessFile_ConfigIncludesAndMacros(t *testing.T) {
 	}
 
 	for _, d := range got.Diagnostics {
-		if d.Severity == SeverityError {
+		if d.Severity == lint.SeverityError {
 			t.Fatalf("unexpected error diagnostic: %s", d.Error())
 		}
 	}
@@ -275,7 +277,7 @@ func TestPreprocessFile_IfDirectiveUnsupportedInStrict(t *testing.T) {
 	}
 
 	if !found {
-		t.Fatalf("expected %s diagnostic, got: %+v", CodePPUnsupportedDirective, got.Diagnostics)
+		t.Fatalf("expected %d diagnostic, got: %+v", CodePPUnsupportedDirective, got.Diagnostics)
 	}
 }
 
@@ -328,7 +330,7 @@ func TestPreprocessFile_ElifDirectiveUnsupportedInStrict(t *testing.T) {
 	}
 
 	if !found {
-		t.Fatalf("expected %s diagnostic, got: %+v", CodePPUnsupportedDirective, got.Diagnostics)
+		t.Fatalf("expected %d diagnostic, got: %+v", CodePPUnsupportedDirective, got.Diagnostics)
 	}
 }
 
@@ -388,7 +390,7 @@ func TestPreprocessFile_MissingDirectiveMacroName(t *testing.T) {
 			}
 
 			if !found {
-				t.Fatalf("expected %s diagnostic, got: %+v", CodePPMissingMacroName, got.Diagnostics)
+				t.Fatalf("expected %d diagnostic, got: %+v", CodePPMissingMacroName, got.Diagnostics)
 			}
 		})
 	}
@@ -400,7 +402,7 @@ func TestPreprocessFile_UnexpectedConditionalDirectives(t *testing.T) {
 	cases := []struct {
 		name         string
 		source       string
-		expectedCode DiagnosticCode
+		expectedCode lint.Code
 	}{
 		{name: "else", source: "#else\nclass A {};\n", expectedCode: CodePPUnexpectedElse},
 		{name: "endif", source: "#endif\nclass A {};\n", expectedCode: CodePPUnexpectedEndif},
@@ -434,7 +436,7 @@ func TestPreprocessFile_UnexpectedConditionalDirectives(t *testing.T) {
 			}
 
 			if !found {
-				t.Fatalf("expected %s diagnostic, got: %+v", tc.expectedCode, got.Diagnostics)
+				t.Fatalf("expected %d diagnostic, got: %+v", tc.expectedCode, got.Diagnostics)
 			}
 		})
 	}
@@ -1306,7 +1308,7 @@ class CfgTest {};
 	}
 
 	if count != 1 {
-		t.Fatalf("expected one %s warning after dedup, got=%d diagnostics=%+v", CodePPMacroRedefined, count, got.Diagnostics)
+		t.Fatalf("expected one %d warning after dedup, got=%d diagnostics=%+v", CodePPMacroRedefined, count, got.Diagnostics)
 	}
 }
 
@@ -1346,11 +1348,11 @@ class CfgTest {};
 	}
 
 	if diagLine == 0 {
-		t.Fatalf("expected %s warning, diagnostics=%+v", CodePPMacroRedefined, got.Diagnostics)
+		t.Fatalf("expected %d warning, diagnostics=%+v", CodePPMacroRedefined, got.Diagnostics)
 	}
 
 	if diagLine != 4 {
-		t.Fatalf("expected %s warning on source line 4, got=%d diagnostics=%+v", CodePPMacroRedefined, diagLine, got.Diagnostics)
+		t.Fatalf("expected %d warning on source line 4, got=%d diagnostics=%+v", CodePPMacroRedefined, diagLine, got.Diagnostics)
 	}
 }
 
@@ -2700,7 +2702,7 @@ class ShouldNotParse {};
 	}
 
 	if !found {
-		t.Fatalf("expected %s diagnostic, got: %+v", CodePPUnsupportedHasInclude, got.Diagnostics)
+		t.Fatalf("expected %d diagnostic, got: %+v", CodePPUnsupportedHasInclude, got.Diagnostics)
 	}
 }
 

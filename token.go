@@ -4,6 +4,8 @@
 
 package rvcfg
 
+import "github.com/woozymasta/lintkit/lint"
+
 // TokenKind is lexical token type.
 type TokenKind int
 
@@ -90,10 +92,10 @@ type Token struct {
 	Lexeme string `json:"lexeme,omitempty" yaml:"lexeme,omitempty"`
 
 	// Start is token start location.
-	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
+	Start lint.Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is token end location.
-	End Position `json:"end,omitzero" yaml:"end,omitempty"`
+	End lint.Position `json:"end,omitzero" yaml:"end,omitempty"`
 
 	// Kind is token type.
 	Kind TokenKind `json:"kind,omitzero" yaml:"kind,omitempty"`

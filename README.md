@@ -176,7 +176,7 @@ rvcfg.FormatOptions{
 
 Diagnostics are stable and machine-readable:
 
-* code (`PAR001`, `PP015`, ...)
+* code (`RVCFG_PAR001`, `RVCFG_PP015`, ...)
 * severity (`error`/`warning`)
 * exact source position
 
@@ -184,8 +184,38 @@ Catalog API:
 
 ```go
 all := rvcfg.DiagnosticCatalog()
-spec, ok := rvcfg.DiagnosticByCode("PAR001")
+spec, ok := rvcfg.DiagnosticByCode(rvcfg.CodeParUnexpectedToken)
+_, _, _ = all, spec, ok
 ```
 
 All diagnostic codes are documented in the full registry:
 [DIAGNOSTICS.md](DIAGNOSTICS.md).
+
+## lintkit integration
+
+`rvcfg` exposes parser and preprocess diagnostics as `lintkit` rules.
+
+```go
+engine := linting.NewEngine()
+if err := rvcfg.RegisterLintRules(engine); err != nil {
+  return err
+}
+
+// same provider form:
+// _ = lint.RegisterRuleProviders(engine, rvcfg.LintRulesProvider{})
+
+runCtx := lint.RunContext{
+  TargetPath: "config.cpp",
+  TargetKind: "rvcfg.config",
+}
+rvcfg.AttachLintDiagnostics(&runCtx, parsed.Diagnostics)
+
+result, err := engine.Run(context.Background(), runCtx, nil)
+if err != nil {
+  return err
+}
+_ = result
+```
+
+Exported short code format uses catalog prefix `CFG` + numeric code.
+Rule IDs use semantic form `rvcfg.<stage>.<description-slug>`.

@@ -4,6 +4,8 @@
 
 package rvcfg
 
+import "github.com/woozymasta/lintkit/lint"
+
 // recoverStatement skips tokens to next statement boundary.
 func (p *parser) recoverStatement(stopAtBrace bool) {
 	if !p.recovery {
@@ -71,7 +73,7 @@ func (p *parser) skipTrivia() {
 }
 
 // expect consumes required token kind or emits parse diagnostic.
-func (p *parser) expect(kind TokenKind, code DiagnosticCode, message string) bool {
+func (p *parser) expect(kind TokenKind, code lint.Code, message string) bool {
 	p.skipTrivia()
 	if p.peek().Kind != kind {
 		p.emitError(code, p.peek().Start, message)

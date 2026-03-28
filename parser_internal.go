@@ -4,10 +4,14 @@
 
 package rvcfg
 
-import "bytes"
+import (
+	"bytes"
+
+	"github.com/woozymasta/lintkit/lint"
+)
 
 // parseClassLikeName parses class-like names and accepts digit-leading forms like `1kHz_*`.
-func (p *parser) parseClassLikeName(code DiagnosticCode, message string) (string, bool) {
+func (p *parser) parseClassLikeName(code lint.Code, message string) (string, bool) {
 	p.skipTrivia()
 
 	token := p.peek()
@@ -47,17 +51,17 @@ func (p *parser) parseClassLikeName(code DiagnosticCode, message string) (string
 }
 
 // emitError appends parser error diagnostic.
-func (p *parser) emitError(code DiagnosticCode, at Position, message string) {
-	p.emit(code, SeverityError, at, message)
+func (p *parser) emitError(code lint.Code, at lint.Position, message string) {
+	p.emit(code, lint.SeverityError, at, message)
 }
 
 // emitWarning appends parser warning diagnostic.
-func (p *parser) emitWarning(code DiagnosticCode, at Position, message string) {
-	p.emit(code, SeverityWarning, at, message)
+func (p *parser) emitWarning(code lint.Code, at lint.Position, message string) {
+	p.emit(code, lint.SeverityWarning, at, message)
 }
 
 // emit appends parser diagnostic with explicit severity.
-func (p *parser) emit(code DiagnosticCode, severity Severity, at Position, message string) {
+func (p *parser) emit(code lint.Code, severity lint.Severity, at lint.Position, message string) {
 	p.diagnostics = append(p.diagnostics, Diagnostic{
 		Code:     code,
 		Message:  message,

@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/woozymasta/lintkit/lint"
 )
 
 // FormatOptions configures canonical config formatter.
@@ -637,7 +639,7 @@ func (f *formatter) writeLine(line string) {
 // hasErrorDiagnostics checks whether diagnostics contain any error-level issue.
 func hasErrorDiagnostics(diagnostics []Diagnostic) bool {
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Severity == SeverityError {
+		if diagnostic.Severity == lint.SeverityError {
 			return true
 		}
 	}

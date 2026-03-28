@@ -4,7 +4,11 @@
 
 package rvcfg
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/woozymasta/lintkit/lint"
+)
 
 var (
 	// ErrIncludeNotFound indicates that #include target file was not resolved.
@@ -30,4 +34,7 @@ var (
 
 	// ErrParse indicates syntax parse failure.
 	ErrParse = errors.New("syntax parse failed")
+
+	// ErrNilLintRuleRegistrar indicates nil lint rule registrar.
+	ErrNilLintRuleRegistrar = lint.ErrNilRuleRegistrar
 )

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/woozymasta/lintkit/lint"
 )
 
 func TestProcessAndParseFile_ConfigSample(t *testing.T) {
@@ -253,7 +255,7 @@ func assertNoProcessErrorDiagnostics(t *testing.T, diagnostics []Diagnostic) {
 	t.Helper()
 
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Severity != SeverityError {
+		if diagnostic.Severity != lint.SeverityError {
 			continue
 		}
 

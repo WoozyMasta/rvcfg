@@ -11,18 +11,19 @@ import (
 	"os"
 	"strings"
 
+	"github.com/woozymasta/lintkit/lint"
 	"github.com/woozymasta/rvcfg"
 )
 
 type stageSection struct {
 	title string
-	items []rvcfg.DiagnosticSpec
+	items []lint.CodeSpec
 }
 
 type tableWidths struct {
-	code     int
-	severity int
-	summary  int
+	code        int
+	severity    int
+	description int
 }
 
 func main() {
@@ -36,11 +37,11 @@ func main() {
 	}
 }
 
-func renderDiagnosticsMarkdown(catalog []rvcfg.DiagnosticSpec) string {
+func renderDiagnosticsMarkdown(catalog []lint.CodeSpec) string {
 	sections := []stageSection{
-		{title: "Lexer", items: make([]rvcfg.DiagnosticSpec, 0)},
-		{title: "Parser", items: make([]rvcfg.DiagnosticSpec, 0)},
-		{title: "Processor", items: make([]rvcfg.DiagnosticSpec, 0)},
+		{title: "Lexer", items: make([]lint.CodeSpec, 0)},
+		{title: "Parser", items: make([]lint.CodeSpec, 0)},
+		{title: "Processor", items: make([]lint.CodeSpec, 0)},
 	}
 
 	for _, spec := range catalog {
@@ -63,14 +64,14 @@ func renderDiagnosticsMarkdown(catalog []rvcfg.DiagnosticSpec) string {
 		b.WriteString("## ")
 		b.WriteString(section.title)
 		b.WriteString("\n\n")
-		b.WriteString(renderRow("Code", "Severity", "Summary", widths))
+		b.WriteString(renderRow("Code", "Severity", "Description", widths))
 		b.WriteString(renderAlignRow(widths))
 
 		for _, spec := range section.items {
 			b.WriteString(renderRow(
-				fmt.Sprintf("`%s`", spec.Code),
+				fmt.Sprintf("`%s`", lint.FormatCode(spec.Code)),
 				severityMarkdown(spec.Severity),
-				spec.Summary,
+				spec.Description,
 				widths,
 			))
 		}
@@ -81,28 +82,28 @@ func renderDiagnosticsMarkdown(catalog []rvcfg.DiagnosticSpec) string {
 	return b.String()
 }
 
-func severityMarkdown(severity rvcfg.Severity) string {
+func severityMarkdown(severity lint.Severity) string {
 	switch severity {
-	case rvcfg.SeverityWarning:
+	case lint.SeverityWarning:
 		return "**warning**"
-	case rvcfg.SeverityError:
+	case lint.SeverityError:
 		return "**error**"
 	default:
 		return fmt.Sprintf("**%s**", severity)
 	}
 }
 
-func calcTableWidths(items []rvcfg.DiagnosticSpec) tableWidths {
+func calcTableWidths(items []lint.CodeSpec) tableWidths {
 	widths := tableWidths{
-		code:     len("Code"),
-		severity: len("Severity"),
-		summary:  len("Summary"),
+		code:        len("Code"),
+		severity:    len("Severity"),
+		description: len("Description"),
 	}
 
 	for _, item := range items {
-		codeCell := fmt.Sprintf("`%s`", item.Code)
+		codeCell := fmt.Sprintf("`%s`", lint.FormatCode(item.Code))
 		severityCell := severityMarkdown(item.Severity)
-		summaryCell := item.Summary
+		descriptionCell := item.Description
 
 		if len(codeCell) > widths.code {
 			widths.code = len(codeCell)
@@ -112,20 +113,20 @@ func calcTableWidths(items []rvcfg.DiagnosticSpec) tableWidths {
 			widths.severity = len(severityCell)
 		}
 
-		if len(summaryCell) > widths.summary {
-			widths.summary = len(summaryCell)
+		if len(descriptionCell) > widths.description {
+			widths.description = len(descriptionCell)
 		}
 	}
 
 	return widths
 }
 
-func renderRow(code string, severity string, summary string, widths tableWidths) string {
+func renderRow(code string, severity string, description string, widths tableWidths) string {
 	return fmt.Sprintf(
 		"| %s | %s | %s |\n",
 		padRight(code, widths.code),
 		padRight(severity, widths.severity),
-		padRight(summary, widths.summary),
+		padRight(description, widths.description),
 	)
 }
 
@@ -134,7 +135,7 @@ func renderAlignRow(widths tableWidths) string {
 		"| %s | %s | %s |\n",
 		alignCenter(widths.code),
 		alignCenter(widths.severity),
-		alignCenter(widths.summary),
+		alignCenter(widths.description),
 	)
 }
 

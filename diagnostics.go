@@ -4,65 +4,34 @@
 
 package rvcfg
 
-import "fmt"
+import (
+	"fmt"
 
-// Severity is diagnostic severity level.
-type Severity string
-
-const (
-	// SeverityError marks diagnostics that should fail current operation.
-	SeverityError Severity = "error"
-
-	// SeverityWarning marks diagnostics that should be reported but are non-fatal.
-	SeverityWarning Severity = "warning"
-
-	// SeverityInfo marks informational diagnostics.
-	SeverityInfo Severity = "info"
-
-	// SeverityNotice marks low-priority notices.
-	SeverityNotice Severity = "notice"
+	"github.com/woozymasta/lintkit/lint"
 )
-
-// DiagnosticCode is stable machine-readable diagnostic identifier.
-type DiagnosticCode string
-
-// Position is a source location.
-type Position struct {
-	// File is source file path or logical source name.
-	File string `json:"file,omitempty" yaml:"file,omitempty"`
-
-	// Line is 1-based line index.
-	Line int `json:"line,omitempty" yaml:"line,omitempty"`
-
-	// Column is 1-based column index.
-	Column int `json:"column,omitempty" yaml:"column,omitempty"`
-
-	// Offset is 0-based absolute byte offset in source.
-	Offset int `json:"offset,omitempty" yaml:"offset,omitempty"`
-}
 
 // Diagnostic describes parser/lexer/preprocessor issue.
 type Diagnostic struct {
 	// Code is stable machine-readable identifier.
-	Code DiagnosticCode `json:"code,omitempty" yaml:"code,omitempty"`
+	Code lint.Code `json:"code,omitempty" yaml:"code,omitempty"`
 
 	// Message is technical description of issue.
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
 	// Severity defines impact of diagnostic.
-	Severity Severity `json:"severity,omitzero" yaml:"severity,omitempty"`
+	Severity lint.Severity `json:"severity,omitzero" yaml:"severity,omitempty"`
 
 	// Start is start location.
-	Start Position `json:"start,omitzero" yaml:"start,omitempty"`
+	Start lint.Position `json:"start,omitzero" yaml:"start,omitempty"`
 
 	// End is end location.
-	End Position `json:"end,omitzero" yaml:"end,omitempty"`
+	End lint.Position `json:"end,omitzero" yaml:"end,omitempty"`
 }
 
 // Error renders diagnostic in compact form.
 func (d Diagnostic) Error() string {
 	if d.Start.File == "" {
-		return fmt.Sprintf("%s: %s", d.Code, d.Message)
+		return fmt.Sprintf("%d: %s", d.Code, d.Message)
 	}
 
 	return fmt.Sprintf(
@@ -70,7 +39,41 @@ func (d Diagnostic) Error() string {
 		d.Start.File,
 		d.Start.Line,
 		d.Start.Column,
-		d.Code,
+		lint.FormatCode(d.Code),
 		d.Message,
 	)
+}
+
+// LintDiagnostic converts one rvcfg diagnostic into lintkitmodel.
+func (d Diagnostic) LintDiagnostic() lint.Diagnostic {
+	start := lint.Position{
+		File:   d.Start.File,
+		Line:   d.Start.Line,
+		Column: d.Start.Column,
+		Offset: d.Start.Offset,
+	}
+	end := lint.Position{
+		File:   d.End.File,
+		Line:   d.End.Line,
+		Column: d.End.Column,
+		Offset: d.End.Offset,
+	}
+
+	if end.File == "" && end.Line == 0 && end.Column == 0 && end.Offset == 0 {
+		end = start
+	}
+
+	path := start.File
+	if path == "" {
+		path = end.File
+	}
+
+	return lint.Diagnostic{
+		RuleID:   LintRuleID(d.Code),
+		Severity: d.Severity,
+		Message:  d.Message,
+		Path:     path,
+		Start:    start,
+		End:      end,
+	}
 }
