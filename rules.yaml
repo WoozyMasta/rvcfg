@@ -25,7 +25,7 @@ rules:
     scope_description: Tokenization diagnostics for invalid characters and unfinished literals.
     code: RVCFG1003
     message: unterminated block comment
-    description: Block comment opened with /* is not closed with */ before end of file.
+    description: Block comment opened with `/*` is not closed with `*/` before end of file.
     default_severity: error
   - id: rvcfg.parse.unexpected-token
     module: rvcfg

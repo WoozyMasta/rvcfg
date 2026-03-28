@@ -58,7 +58,7 @@ Unterminated string literal
 
 Unterminated block comment
 
-> Block comment opened with /* is not closed with */ before end of file.
+> Block comment opened with `/*` is not closed with `*/` before end of file.
 
 | Field | Value |
 | --- | --- |
