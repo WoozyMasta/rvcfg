@@ -4,10 +4,8 @@
 
 package rvcfg
 
-import "github.com/woozymasta/lintkit/lint"
-
 // TokenKind is lexical token type.
-type TokenKind int
+type TokenKind uint8
 
 const (
 	// TokenUnknown is fallback token for unknown lexeme.
@@ -88,17 +86,26 @@ const (
 
 // Token is lexical token with source positions.
 type Token struct {
-	// Lexeme is exact source fragment.
-	Lexeme string `json:"lexeme,omitempty" yaml:"lexeme,omitempty"`
+	// Start is compact token start location.
+	Start TokenPosition `json:"start,omitzero" yaml:"start,omitempty"`
 
-	// Start is token start location.
-	Start lint.Position `json:"start,omitzero" yaml:"start,omitempty"`
-
-	// End is token end location.
-	End lint.Position `json:"end,omitzero" yaml:"end,omitempty"`
+	// End is compact token end location.
+	End TokenPosition `json:"end,omitzero" yaml:"end,omitempty"`
 
 	// Kind is token type.
 	Kind TokenKind `json:"kind,omitzero" yaml:"kind,omitempty"`
+}
+
+// TokenPosition is compact token location without duplicated filename.
+type TokenPosition struct {
+	// Line is 1-based source line.
+	Line uint32 `json:"line,omitzero" yaml:"line,omitempty"`
+
+	// Column is 1-based source column.
+	Column uint32 `json:"column,omitzero" yaml:"column,omitempty"`
+
+	// Offset is 0-based byte offset.
+	Offset uint32 `json:"offset,omitzero" yaml:"offset,omitempty"`
 }
 
 // String renders readable token kind name.

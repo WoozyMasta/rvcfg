@@ -3,8 +3,6 @@ package rvcfg
 import (
 	"reflect"
 	"testing"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 func TestPreprocessConfigMacroParityWithExplainedSample(t *testing.T) {
@@ -50,7 +48,7 @@ func assertNoErrorDiagnostics(t *testing.T, diagnostics []Diagnostic, stage stri
 	t.Helper()
 
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Severity != lint.SeverityError {
+		if diagnostic.Severity != SeverityError {
 			continue
 		}
 

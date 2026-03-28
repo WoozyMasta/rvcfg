@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 func BenchmarkLexVehicleConfig(b *testing.B) {
@@ -181,7 +179,7 @@ func benchLargeConfigTokens(b *testing.B, data []byte) []Token {
 	}
 
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Severity == lint.SeverityError {
+		if diagnostic.Severity == SeverityError {
 			b.Fatalf("LexBytes benchmark setup diagnostic: %s", diagnostic.Error())
 		}
 	}

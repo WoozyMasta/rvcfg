@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/woozymasta/lintkit/lint"
-	"github.com/woozymasta/lintkit/linttest"
 )
 
 // lintRulesTestRegistrar captures registered runners for tests.
@@ -22,18 +21,6 @@ func (registrar *lintRulesTestRegistrar) Register(
 	return nil
 }
 
-func TestLintRuleSpecsMatchCatalog(t *testing.T) {
-	t.Parallel()
-
-	linttest.AssertCatalogContract(
-		t,
-		LintModule,
-		DiagnosticCatalog(),
-		LintRuleSpecs(),
-		LintRuleID,
-	)
-}
-
 func TestRegisterLintRules(t *testing.T) {
 	t.Parallel()
 
@@ -44,7 +31,11 @@ func TestRegisterLintRules(t *testing.T) {
 
 	catalog := DiagnosticCatalog()
 	if len(registrar.runners) != len(catalog) {
-		t.Fatalf("registered runners=%d, want %d", len(registrar.runners), len(catalog))
+		t.Fatalf(
+			"registered runners=%d, want %d",
+			len(registrar.runners),
+			len(catalog),
+		)
 	}
 }
 
@@ -59,7 +50,11 @@ func TestLintRulesProviderRegisterRules(t *testing.T) {
 
 	catalog := DiagnosticCatalog()
 	if len(registrar.runners) != len(catalog) {
-		t.Fatalf("registered runners=%d, want %d", len(registrar.runners), len(catalog))
+		t.Fatalf(
+			"registered runners=%d, want %d",
+			len(registrar.runners),
+			len(catalog),
+		)
 	}
 }
 
@@ -67,7 +62,91 @@ func TestRegisterLintRulesNilRegistrar(t *testing.T) {
 	t.Parallel()
 
 	if err := RegisterLintRules(nil); err != ErrNilLintRuleRegistrar {
-		t.Fatalf("RegisterLintRules(nil) error=%v, want %v", err, ErrNilLintRuleRegistrar)
+		t.Fatalf(
+			"RegisterLintRules(nil) error=%v, want %v",
+			err,
+			ErrNilLintRuleRegistrar,
+		)
+	}
+}
+
+func TestRegisterLintRulesByStage(t *testing.T) {
+	t.Parallel()
+
+	var registrar lintRulesTestRegistrar
+	if err := RegisterLintRulesByStage(&registrar, StageParse); err != nil {
+		t.Fatalf("RegisterLintRulesByStage() error: %v", err)
+	}
+
+	if len(registrar.runners) == 0 {
+		t.Fatal("registered runners=0, want parse runners")
+	}
+
+	for index := range registrar.runners {
+		if registrar.runners[index].RuleSpec().Scope != string(StageParse) {
+			t.Fatalf(
+				"runner[%d].scope=%q, want %q",
+				index,
+				registrar.runners[index].RuleSpec().Scope,
+				StageParse,
+			)
+		}
+	}
+
+	if _, ok := findRunnerByRuleID(
+		registrar.runners,
+		LintRuleID(CodePPIncludeNotFound),
+	); ok {
+		t.Fatal("preprocess rule registered in parse-only stage filter")
+	}
+}
+
+func TestRegisterLintRulesByStageNilRegistrar(t *testing.T) {
+	t.Parallel()
+
+	if err := RegisterLintRulesByStage(nil, StageParse); err != ErrNilLintRuleRegistrar {
+		t.Fatalf(
+			"RegisterLintRulesByStage(nil) error=%v, want %v",
+			err,
+			ErrNilLintRuleRegistrar,
+		)
+	}
+}
+
+func TestLintRulesProviderSupportsStageRegistration(t *testing.T) {
+	t.Parallel()
+
+	var registrar lintRulesTestRegistrar
+	provider := LintRulesProvider{}
+	err := lint.RegisterRuleProvidersByStage(
+		&registrar,
+		[]lint.Stage{lint.Stage(StageParse)},
+		provider,
+	)
+	if err != nil {
+		t.Fatalf("RegisterRuleProvidersByStage(provider) error: %v", err)
+	}
+
+	if len(registrar.runners) == 0 {
+		t.Fatal("registered runners=0, want parse runners")
+	}
+
+	for index := range registrar.runners {
+		if registrar.runners[index].RuleSpec().Scope != string(StageParse) {
+			t.Fatalf(
+				"runner[%d].scope=%q, want %q",
+				index,
+				registrar.runners[index].RuleSpec().Scope,
+				StageParse,
+			)
+		}
+	}
+
+	if _, ok := findRunnerByRuleID(
+		registrar.runners,
+		LintRuleID(CodePPIncludeNotFound),
+	); ok {
+		t.Fatal("preprocess rule registered in parse-only stage filter")
 	}
 }
 
@@ -79,9 +158,15 @@ func TestLintRuleRunnerCheck(t *testing.T) {
 		t.Fatalf("RegisterLintRules() error: %v", err)
 	}
 
-	runner, ok := findRunnerByRuleID(registrar.runners, LintRuleID(CodeParExpectedValue))
+	runner, ok := findRunnerByRuleID(
+		registrar.runners,
+		LintRuleID(CodeParExpectedValue),
+	)
 	if !ok {
-		t.Fatalf("runner for %q not found", LintRuleID(CodeParExpectedValue))
+		t.Fatalf(
+			"runner for %q not found",
+			LintRuleID(CodeParExpectedValue),
+		)
 	}
 
 	runContext := lint.RunContext{
@@ -91,8 +176,8 @@ func TestLintRuleRunnerCheck(t *testing.T) {
 		{
 			Code:     CodeParExpectedValue,
 			Message:  "expected value",
-			Severity: lint.SeverityError,
-			Start: lint.Position{
+			Severity: SeverityError,
+			Start: Position{
 				File:   "config.cpp",
 				Line:   12,
 				Column: 5,
@@ -101,8 +186,8 @@ func TestLintRuleRunnerCheck(t *testing.T) {
 		{
 			Code:     CodeParExpectedValue,
 			Message:  "expected value again",
-			Severity: lint.SeverityError,
-			Start: lint.Position{
+			Severity: SeverityError,
+			Start: Position{
 				File:   "config.cpp",
 				Line:   18,
 				Column: 2,
@@ -111,8 +196,8 @@ func TestLintRuleRunnerCheck(t *testing.T) {
 		{
 			Code:     CodePPMacroRedefined,
 			Message:  "macro redefined",
-			Severity: lint.SeverityWarning,
-			Start: lint.Position{
+			Severity: SeverityWarning,
+			Start: Position{
 				File:   "config.cpp",
 				Line:   40,
 				Column: 1,
@@ -137,36 +222,10 @@ func TestLintRuleRunnerCheck(t *testing.T) {
 	}
 
 	for index := range diagnostics {
-		if diagnostics[index].RuleID != LintRuleID(CodeParExpectedValue) {
+		if diagnostics[index].RuleID !=
+			LintRuleID(CodeParExpectedValue) {
 			t.Fatalf("Diagnostics[%d].RuleID=%q", index, diagnostics[index].RuleID)
 		}
-	}
-}
-
-func TestDiagnosticLintDiagnostic(t *testing.T) {
-	t.Parallel()
-
-	converted := (Diagnostic{
-		Code:     999999,
-		Message:  "message",
-		Severity: lint.SeverityInfo,
-		Start: lint.Position{
-			File:   "source.cpp",
-			Line:   1,
-			Column: 2,
-		},
-	}).LintDiagnostic()
-
-	if converted.RuleID != "rvcfg.unknown" {
-		t.Fatalf("RuleID=%q, want rvcfg.unknown", converted.RuleID)
-	}
-
-	if converted.Severity != lint.SeverityInfo {
-		t.Fatalf("lint.Severity=%q, want %q", converted.Severity, lint.SeverityInfo)
-	}
-
-	if converted.Path != "source.cpp" {
-		t.Fatalf("Path=%q, want source.cpp", converted.Path)
 	}
 }
 

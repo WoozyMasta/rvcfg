@@ -135,6 +135,18 @@ type SourceMapEntry struct {
 
 	// OutputEndLine is output end line (1-based).
 	OutputEndLine int `json:"output_end_line,omitempty" yaml:"output_end_line,omitempty"`
+
+	// SourceStartColumn is origin start column (1-based, approximate for expanded content).
+	SourceStartColumn int `json:"source_start_column,omitempty" yaml:"source_start_column,omitempty"`
+
+	// SourceEndColumn is origin end column (1-based, approximate for expanded content).
+	SourceEndColumn int `json:"source_end_column,omitempty" yaml:"source_end_column,omitempty"`
+
+	// OutputStartColumn is output start column (1-based).
+	OutputStartColumn int `json:"output_start_column,omitempty" yaml:"output_start_column,omitempty"`
+
+	// OutputEndColumn is output end column (1-based).
+	OutputEndColumn int `json:"output_end_column,omitempty" yaml:"output_end_column,omitempty"`
 }
 
 // mappedLine stores output line with origin metadata.

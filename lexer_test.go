@@ -2,8 +2,6 @@ package rvcfg
 
 import (
 	"testing"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 func TestLexFilePlainRVMAT(t *testing.T) {
@@ -75,7 +73,7 @@ func assertNoLexErrorDiagnostics(t *testing.T, diagnostics []Diagnostic) {
 	t.Helper()
 
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Severity != lint.SeverityError {
+		if diagnostic.Severity != SeverityError {
 			continue
 		}
 

@@ -4,7 +4,9 @@
 
 package rvcfg
 
-import "github.com/woozymasta/lintkit/lint"
+import (
+	"github.com/woozymasta/lintkit/lint"
+)
 
 // withDescription attaches optional documentation text to one catalog spec.
 func withDescription(spec lint.CodeSpec, description string) lint.CodeSpec {
@@ -167,6 +169,68 @@ var diagnosticCatalog = []lint.CodeSpec{
 		),
 		"This can replace inherited subtree instead of extending it. Add explicit "+
 			"inheritance to make merge behavior predictable.",
+	),
+	withDescription(
+		lint.WarningCodeSpec(
+			CodeParRAPUnsupportedScalar,
+			StageParse,
+			"scalar may be unsupported by RAP encoder",
+		),
+		"Scalar token sequence cannot be classified into RAP scalar subtype safely. "+
+			"Use quoted string, integer, float, or identifier-like scalar form.",
+	),
+	withDescription(
+		lint.WarningCodeSpec(
+			CodeParRAPFloatPrecisionLoss,
+			StageParse,
+			"float loses precision in RAP float32 conversion",
+		),
+		"RAP stores float scalars as float32. Parsed value differs noticeably after "+
+			"float64->float32 conversion.",
+	),
+	withDescription(
+		lint.WarningCodeSpec(
+			CodeParRAPFloatUnderflowToZero,
+			StageParse,
+			"float may collapse to zero in RAP float32 conversion",
+		),
+		"Very small non-zero float becomes zero when encoded as RAP float32.",
+	),
+	withDescription(
+		lint.WarningCodeSpec(
+			CodeParRAPUnsafeStringEscape,
+			StageParse,
+			"string escape style may be incompatible with BI/CfgConvert",
+		),
+		"Detected C-style backslash quote escape in string scalar. Prefer doubled "+
+			"quote escaping for BI/CfgConvert compatibility.",
+	),
+	withDescription(
+		lint.InfoCodeSpec(
+			CodeParRAPExtremeFloatMagnitude,
+			StageParse,
+			"extreme float magnitude may normalize unexpectedly in RAP round-trip",
+		),
+		"Extreme exponent/magnitude float can look unstable in text output after "+
+			"RAP float32 conversion.",
+	),
+	withDescription(
+		lint.WarningCodeSpec(
+			CodeParRAPFloatOverflowToInf,
+			StageParse,
+			"float overflows to Inf in RAP float32 conversion",
+		),
+		"Float literal exceeds float32 finite range and becomes +Inf/-Inf during "+
+			"RAP numeric encoding.",
+	),
+	withDescription(
+		lint.WarningCodeSpec(
+			CodeParRAPNonFiniteFloat,
+			StageParse,
+			"non-finite float literal is unsafe for RAP numeric encoding",
+		),
+		"Detected NaN/Inf-like scalar literal. RAP numeric scalar encoding expects "+
+			"finite values.",
 	),
 	withDescription(
 		lint.ErrorCodeSpec(

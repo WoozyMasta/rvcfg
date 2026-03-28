@@ -2,6 +2,7 @@ GO          ?= go
 LINTER      ?= golangci-lint
 ALIGNER     ?= betteralign
 BENCHSTAT   ?= benchstat
+LINTKIT     ?= lintkit
 BENCH_COUNT ?= 6
 BENCH_REF   ?= bench_baseline.txt
 
@@ -11,7 +12,7 @@ BENCH_REF   ?= bench_baseline.txt
 	release-notes
 
 check: verify tidy fmt vet lint-fix align-fix test diag-doc
-ci: download tools-ci verify tidy-check fmt-check vet lint align test
+ci: download tools-ci verify tidy-check fmt-check vet lint align test diag-doc-check
 
 fmt:
 	gofmt -w .
@@ -78,10 +79,11 @@ align:
 	$(ALIGNER) ./...
 
 align-fix:
-	$(ALIGNER) -apply ./...
+	-$(ALIGNER) -apply ./...
+	$(ALIGNER) ./...
 
-tools: tool-golangci-lint tool-betteralign tool-benchstat
-tools-ci: tool-golangci-lint tool-betteralign
+tools: tool-golangci-lint tool-betteralign tool-benchstat tool-lintkit
+tools-ci: tool-golangci-lint tool-betteralign tool-lintkit
 
 tool-golangci-lint:
 	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
@@ -91,6 +93,9 @@ tool-betteralign:
 
 tool-benchstat:
 	$(GO) install golang.org/x/perf/cmd/benchstat@latest
+
+tool-lintkit:
+	$(GO) install github.com/woozymasta/lintkit/cmd/lintkit@latest
 
 release-notes:
 	@awk '\
@@ -110,4 +115,9 @@ release-notes:
 	' CHANGELOG.md
 
 diag-doc:
-	$(GO) run ./cmd/diagdocgen -out DIAGNOSTICS.md
+	$(LINTKIT) snapshot -f yaml rules.yaml
+	$(LINTKIT) doc -t table rules.yaml DIAGNOSTICS.md
+
+diag-doc-check:
+	$(LINTKIT) snapshot -cf yaml rules.yaml
+	$(LINTKIT) doc -ct table rules.yaml DIAGNOSTICS.md

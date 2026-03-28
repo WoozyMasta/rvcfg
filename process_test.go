@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 func TestProcessAndParseFile_ConfigSample(t *testing.T) {
@@ -231,6 +229,122 @@ DECL_ITEM(ItemB, 4, 5)
 	}
 }
 
+func TestProcessAndParseFile_RemapParseDiagnosticToIncludeFile(t *testing.T) {
+	t.Parallel()
+
+	root := writeProcessFixture(t, map[string]string{
+		"root.cpp": `
+class CfgVehicles
+{
+#include "inc.hpp"
+};
+`,
+		"inc.hpp": `
+class Broken
+{
+	value = 1
+};
+`,
+	})
+
+	result, err := ProcessAndParseFile(root, PreprocessOptions{}, ParseOptions{})
+	if err == nil {
+		t.Fatal("expected ProcessAndParseFile to fail on missing semicolon in include file")
+	}
+
+	found := false
+	for _, diagnostic := range result.Parse.Diagnostics {
+		if diagnostic.Code != CodeParMissingAssignSemicolon {
+			continue
+		}
+
+		found = true
+		if diagnostic.Start.File != "inc.hpp" {
+			t.Fatalf("expected remapped diagnostic file inc.hpp, got %q", diagnostic.Start.File)
+		}
+
+		if diagnostic.Start.Line != 5 {
+			t.Fatalf("expected remapped diagnostic line 5 in include file, got %d", diagnostic.Start.Line)
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected %s diagnostic in parse diagnostics", FormatCode(CodeParMissingAssignSemicolon))
+	}
+}
+
+func TestProcessAndParseFile_RemapASTPositionsToIncludeFile(t *testing.T) {
+	t.Parallel()
+
+	root := writeProcessFixture(t, map[string]string{
+		"root.cpp": `
+class CfgVehicles
+{
+#include "inc.hpp"
+};
+`,
+		"inc.hpp": `
+class TestChunkCar
+{
+	scope = 2;
+};
+`,
+	})
+
+	result, err := ProcessAndParseFile(root, PreprocessOptions{}, ParseOptions{
+		CaptureScalarRaw: true,
+	})
+	if err != nil {
+		t.Fatalf("ProcessAndParseFile(%s) error: %v", root, err)
+	}
+
+	cfgVehicles, ok := result.Parse.File.FindClass("CfgVehicles")
+	if !ok {
+		t.Fatal("expected class CfgVehicles")
+	}
+
+	var includeClassStatement *Statement
+	for index := range cfgVehicles.Body {
+		statement := &cfgVehicles.Body[index]
+		if statement.Kind != NodeClass || statement.Class == nil {
+			continue
+		}
+
+		if statement.Class.Name != "TestChunkCar" {
+			continue
+		}
+
+		includeClassStatement = statement
+
+		break
+	}
+
+	if includeClassStatement == nil {
+		t.Fatal("expected class CfgVehicles/TestChunkCar")
+	}
+
+	if includeClassStatement.Start.File != "inc.hpp" {
+		t.Fatalf("expected include class start file inc.hpp, got %q", includeClassStatement.Start.File)
+	}
+
+	if includeClassStatement.Start.Line != 2 {
+		t.Fatalf("expected include class start line 2, got %d", includeClassStatement.Start.Line)
+	}
+
+	scope, ok := includeClassStatement.Class.FindProperty("scope")
+	if !ok {
+		t.Fatal("expected scope property in include class")
+	}
+
+	if scope.Value.Start.File != "inc.hpp" {
+		t.Fatalf("expected include property value file inc.hpp, got %q", scope.Value.Start.File)
+	}
+
+	if scope.Value.Start.Line != 4 {
+		t.Fatalf("expected include property value line 4, got %d", scope.Value.Start.Line)
+	}
+}
+
 // writeProcessFixture writes temporary fixture files and returns root.cpp path.
 func writeProcessFixture(t *testing.T, files map[string]string) string {
 	t.Helper()
@@ -255,7 +369,7 @@ func assertNoProcessErrorDiagnostics(t *testing.T, diagnostics []Diagnostic) {
 	t.Helper()
 
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Severity != lint.SeverityError {
+		if diagnostic.Severity != SeverityError {
 			continue
 		}
 

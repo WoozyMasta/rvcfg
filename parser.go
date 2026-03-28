@@ -7,12 +7,10 @@ package rvcfg
 import (
 	"fmt"
 	"os"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 var (
-	externIdentifier = []byte("extern")
+	externIdentifier = "extern"
 )
 
 // ParseOptions configures parser behavior.
@@ -92,7 +90,6 @@ func ParseFile(path string, opts ParseOptions) (ParseResult, error) {
 func ParseBytes(filename string, data []byte, opts ParseOptions) (ParseResult, error) {
 	lexOpts := LexOptions{}
 	if opts.PreserveComments {
-		lexOpts.CaptureLexeme = true
 		lexOpts.EmitComments = true
 		lexOpts.EmitNewlines = true
 	}
@@ -118,7 +115,7 @@ func ParseBytes(filename string, data []byte, opts ParseOptions) (ParseResult, e
 
 // ParseTokens parses pre-tokenized source into AST without lexer stage.
 func ParseTokens(filename string, data []byte, tokens []Token, opts ParseOptions) (ParseResult, error) {
-	p := newParser(tokens, data, opts)
+	p := newParser(filename, tokens, data, opts)
 	file := p.parseFile(filename)
 
 	result := ParseResult{
@@ -126,26 +123,8 @@ func ParseTokens(filename string, data []byte, tokens []Token, opts ParseOptions
 		Diagnostics: p.diagnostics,
 	}
 
-	hasError := false
 	for _, d := range result.Diagnostics {
-		if d.Severity != lint.SeverityError {
-			continue
-		}
-
-		hasError = true
-
-		break
-	}
-
-	if !hasError {
-		result.Diagnostics = append(
-			result.Diagnostics,
-			collectInheritanceHints(result.File)...,
-		)
-	}
-
-	for _, d := range result.Diagnostics {
-		if d.Severity == lint.SeverityError {
+		if d.Severity == SeverityError {
 			return result, ErrParse
 		}
 	}
@@ -160,7 +139,8 @@ type parser struct {
 	externArena      arena[ExternDecl]
 	enumArena        arena[EnumDecl]
 	propertyArena    arena[PropertyAssign]
-	source           []byte
+	sourceText       string
+	filename         string
 	tokens           []Token
 	diagnostics      []Diagnostic
 	arrayAssignArena arena[ArrayAssign]
@@ -173,9 +153,10 @@ type parser struct {
 }
 
 // newParser builds parser with configured recovery mode.
-func newParser(tokens []Token, source []byte, opts ParseOptions) *parser {
+func newParser(filename string, tokens []Token, source []byte, opts ParseOptions) *parser {
 	return &parser{
-		source:           source,
+		filename:         filename,
+		sourceText:       bytesToStringView(source),
 		tokens:           tokens,
 		diagnostics:      make([]Diagnostic, 0),
 		captureScalarRaw: opts.CaptureScalarRaw,
@@ -197,18 +178,15 @@ func (p *parser) parseFile(filename string) File {
 		return file
 	}
 
-	file.Start = p.tokens[0].Start
-	file.End = p.tokens[len(p.tokens)-1].End
+	file.Start = p.tokStart(p.tokens[0])
+	file.End = p.tokEnd(p.tokens[len(p.tokens)-1])
 
 	return file
 }
 
 // parseStatements parses statement list until EOF or optional closing brace.
 func (p *parser) parseStatements(stopAtBrace bool) []Statement {
-	capHint := 16
-	if !stopAtBrace {
-		capHint = 128
-	}
+	capHint := p.estimateStatementCap(stopAtBrace)
 
 	statements := make([]Statement, 0, capHint)
 
@@ -264,6 +242,81 @@ func (p *parser) parseStatements(stopAtBrace bool) []Statement {
 	return statements
 }
 
+// estimateStatementCap estimates statement count in current parser scope.
+func (p *parser) estimateStatementCap(stopAtBrace bool) int {
+	if len(p.tokens) == 0 || p.index >= len(p.tokens) {
+		return 0
+	}
+
+	if !stopAtBrace {
+		count := countTopLevelStatementDelimiters(p.tokens[p.index:])
+		if count <= 0 {
+			return 64
+		}
+
+		return count
+	}
+
+	count := countScopedStatementDelimiters(p.tokens[p.index:])
+	if count <= 0 {
+		return 8
+	}
+
+	return count
+}
+
+// countTopLevelStatementDelimiters counts top-level statement-ending semicolons.
+func countTopLevelStatementDelimiters(tokens []Token) int {
+	depth := 0
+	count := 0
+	for _, token := range tokens {
+		switch token.Kind {
+		case TokenLBrace:
+			depth++
+
+		case TokenRBrace:
+			if depth == 0 {
+				return max(count, 1)
+			}
+
+			depth--
+
+		case TokenSemicolon:
+			if depth == 0 {
+				count++
+			}
+		}
+	}
+
+	return max(count, 1)
+}
+
+// countScopedStatementDelimiters counts statement-ending semicolons until first matching '}'.
+func countScopedStatementDelimiters(tokens []Token) int {
+	depth := 0
+	count := 0
+	for _, token := range tokens {
+		switch token.Kind {
+		case TokenLBrace:
+			depth++
+
+		case TokenRBrace:
+			if depth == 0 {
+				return max(count, 1)
+			}
+
+			depth--
+
+		case TokenSemicolon:
+			if depth == 0 {
+				count++
+			}
+		}
+	}
+
+	return max(count, 1)
+}
+
 // parseStatement parses one declaration or assignment statement.
 func (p *parser) parseStatement(stopAtBrace bool) (Statement, bool) {
 	token := p.peek()
@@ -291,7 +344,7 @@ func (p *parser) parseStatement(stopAtBrace bool) (Statement, bool) {
 		return p.parseAssignment(stopAtBrace)
 	}
 
-	p.emitError(CodeParUnexpectedToken, token.Start, "unexpected token "+token.Kind.String())
+	p.emitError(CodeParUnexpectedToken, p.tokStart(token), "unexpected token "+token.Kind.String())
 	p.recoverStatement(stopAtBrace)
 
 	return Statement{}, false
@@ -325,15 +378,15 @@ func (p *parser) parseClass(stopAtBrace bool) (Statement, bool) {
 		stmt := Statement{
 			Kind:  NodeClass,
 			Class: classDecl,
-			Start: startToken.Start,
-			End:   p.prev().End,
+			Start: p.tokStart(startToken),
+			End:   p.tokEnd(p.prev()),
 		}
 
 		return stmt, true
 	}
 
 	if !p.match(TokenLBrace) {
-		p.emitError(CodeParExpectedClassBodyOrSemicolon, p.peek().Start, "expected '{' or ';' after class declaration")
+		p.emitError(CodeParExpectedClassBodyOrSemicolon, p.tokStart(p.peek()), "expected '{' or ';' after class declaration")
 		p.recoverStatement(stopAtBrace)
 
 		return Statement{}, false
@@ -348,9 +401,9 @@ func (p *parser) parseClass(stopAtBrace bool) (Statement, bool) {
 
 	if !p.match(TokenSemicolon) {
 		if p.autoFixClassSem && p.canRecoverImplicitClassSemicolon() {
-			p.emitWarning(CodeParAutofixClassSemicolon, p.prev().End, "autofix: inserted missing ';' after class declaration")
+			p.emitWarning(CodeParAutofixClassSemicolon, p.tokEnd(p.prev()), "autofix: inserted missing ';' after class declaration")
 		} else {
-			p.emitError(CodeParMissingClassSemicolon, p.peek().Start, "missing ';' after class declaration")
+			p.emitError(CodeParMissingClassSemicolon, p.tokStart(p.peek()), "missing ';' after class declaration")
 			p.recoverStatement(stopAtBrace)
 
 			return Statement{}, false
@@ -363,8 +416,8 @@ func (p *parser) parseClass(stopAtBrace bool) (Statement, bool) {
 	stmt := Statement{
 		Kind:  NodeClass,
 		Class: classDecl,
-		Start: startToken.Start,
-		End:   p.prev().End,
+		Start: p.tokStart(startToken),
+		End:   p.tokEnd(p.prev()),
 	}
 
 	return stmt, true
@@ -392,8 +445,8 @@ func (p *parser) parseDelete(stopAtBrace bool) (Statement, bool) {
 	stmt := Statement{
 		Kind:   NodeDelete,
 		Delete: deleteNode,
-		Start:  startToken.Start,
-		End:    p.prev().End,
+		Start:  p.tokStart(startToken),
+		End:    p.tokEnd(p.prev()),
 	}
 
 	return stmt, true
@@ -425,8 +478,8 @@ func (p *parser) parseExtern(stopAtBrace bool) (Statement, bool) {
 	stmt := Statement{
 		Kind:   NodeExtern,
 		Extern: extern,
-		Start:  startToken.Start,
-		End:    p.prev().End,
+		Start:  p.tokStart(startToken),
+		End:    p.tokEnd(p.prev()),
 	}
 
 	return stmt, true
@@ -453,7 +506,7 @@ func (p *parser) parseEnum(stopAtBrace bool) (Statement, bool) {
 	for {
 		p.skipTrivia()
 		if p.isEOF() {
-			p.emitError(CodeParExpectedEnumDelimiter, p.prev().End, "unterminated enum declaration")
+			p.emitError(CodeParExpectedEnumDelimiter, p.tokEnd(p.prev()), "unterminated enum declaration")
 
 			p.recoverStatement(stopAtBrace)
 
@@ -465,7 +518,7 @@ func (p *parser) parseEnum(stopAtBrace bool) (Statement, bool) {
 		}
 
 		if p.peek().Kind != TokenIdentifier {
-			p.emitError(CodeParExpectedEnumItemName, p.peek().Start, "expected enum item name")
+			p.emitError(CodeParExpectedEnumItemName, p.tokStart(p.peek()), "expected enum item name")
 			p.recoverEnumItem()
 
 			if p.match(TokenComma) {
@@ -509,7 +562,7 @@ func (p *parser) parseEnum(stopAtBrace bool) (Statement, bool) {
 			break
 		}
 
-		p.emitError(CodeParExpectedEnumDelimiter, p.peek().Start, "expected ',' or '}' in enum declaration")
+		p.emitError(CodeParExpectedEnumDelimiter, p.tokStart(p.peek()), "expected ',' or '}' in enum declaration")
 		p.recoverEnumItem()
 	}
 
@@ -525,8 +578,8 @@ func (p *parser) parseEnum(stopAtBrace bool) (Statement, bool) {
 	stmt := Statement{
 		Kind:  NodeEnum,
 		Enum:  node,
-		Start: startToken.Start,
-		End:   p.prev().End,
+		Start: p.tokStart(startToken),
+		End:   p.tokEnd(p.prev()),
 	}
 
 	return stmt, true
@@ -536,19 +589,19 @@ func (p *parser) parseEnum(stopAtBrace bool) (Statement, bool) {
 func (p *parser) parseEnumValueRaw(stopMask valueStopMask) (string, bool) {
 	p.skipTrivia()
 	if p.isEOF() {
-		p.emitError(CodeParExpectedValueBeforeEOF, p.prev().End, "expected enum item value before end of file")
+		p.emitError(CodeParExpectedValueBeforeEOF, p.tokEnd(p.prev()), "expected enum item value before end of file")
 
 		return "", false
 	}
 
 	if p.isStopToken(p.peek().Kind, stopMask) {
-		p.emitError(CodeParExpectedValue, p.peek().Start, "expected enum item value")
+		p.emitError(CodeParExpectedValue, p.tokStart(p.peek()), "expected enum item value")
 
 		return "", false
 	}
 
-	startOffset := p.peek().Start.Offset
-	endOffset := p.peek().End.Offset
+	startOffset := int(p.peek().Start.Offset)
+	endOffset := int(p.peek().End.Offset)
 
 	for !p.isEOF() {
 		token := p.peek()
@@ -562,12 +615,12 @@ func (p *parser) parseEnumValueRaw(stopMask valueStopMask) (string, bool) {
 			break
 		}
 
-		endOffset = token.End.Offset
+		endOffset = int(token.End.Offset)
 		p.advance()
 	}
 
 	if startOffset < 0 || endOffset < startOffset {
-		p.emitError(CodeParExpectedValue, p.peek().Start, "expected enum item value")
+		p.emitError(CodeParExpectedValue, p.tokStart(p.peek()), "expected enum item value")
 
 		return "", false
 	}
@@ -598,7 +651,7 @@ func (p *parser) parseAssignment(stopAtBrace bool) (Statement, bool) {
 			appendMode = true
 			p.advance()
 		default:
-			p.emitError(CodeParExpectedArrayAssignOperator, p.peek().Start, "expected '=' or '+=' after array target")
+			p.emitError(CodeParExpectedArrayAssignOperator, p.tokStart(p.peek()), "expected '=' or '+=' after array target")
 			p.recoverStatement(stopAtBrace)
 
 			return Statement{}, false
@@ -620,8 +673,8 @@ func (p *parser) parseAssignment(stopAtBrace bool) (Statement, bool) {
 		stmt := Statement{
 			Kind:        NodeArrayAssign,
 			ArrayAssign: p.arrayAssignNode(nameToken, appendMode, value),
-			Start:       nameToken.Start,
-			End:         p.prev().End,
+			Start:       p.tokStart(nameToken),
+			End:         p.tokEnd(p.prev()),
 		}
 
 		return stmt, true
@@ -649,8 +702,8 @@ func (p *parser) parseAssignment(stopAtBrace bool) (Statement, bool) {
 	stmt := Statement{
 		Kind:     NodeProperty,
 		Property: p.propertyNode(nameToken, value),
-		Start:    nameToken.Start,
-		End:      p.prev().End,
+		Start:    p.tokStart(nameToken),
+		End:      p.tokEnd(p.prev()),
 	}
 
 	return stmt, true

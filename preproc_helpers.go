@@ -8,23 +8,21 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 // emitError appends error diagnostic with source location.
-func (p *preprocessor) emitError(code lint.Code, file string, line int, msg string) {
-	p.emit(code, lint.SeverityError, file, line, msg)
+func (p *preprocessor) emitError(code Code, file string, line int, msg string) {
+	p.emit(code, SeverityError, file, line, msg)
 }
 
 // emitWarning appends warning diagnostic with source location.
-func (p *preprocessor) emitWarning(code lint.Code, file string, line int, msg string) {
-	p.emit(code, lint.SeverityWarning, file, line, msg)
+func (p *preprocessor) emitWarning(code Code, file string, line int, msg string) {
+	p.emit(code, SeverityWarning, file, line, msg)
 }
 
 // emit appends diagnostic with explicit severity and source location.
-func (p *preprocessor) emit(code lint.Code, severity lint.Severity, file string, line int, msg string) {
-	start := lint.Position{
+func (p *preprocessor) emit(code Code, severity Severity, file string, line int, msg string) {
+	start := Position{
 		File:   file,
 		Line:   line,
 		Column: 1,

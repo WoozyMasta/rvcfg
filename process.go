@@ -19,6 +19,9 @@ type ProcessAndParseResult struct {
 //  1. PreprocessFile(path, preprocessOptions)
 //  2. ParseBytes(path, []byte(preprocessed.Text), parseOptions)
 func ProcessAndParseFile(path string, preprocessOptions PreprocessOptions, parseOptions ParseOptions) (ProcessAndParseResult, error) {
+	// Processed pipeline always requires source map for diagnostic/AST position remap.
+	preprocessOptions.TrackSourceMap = true
+
 	preprocessed, preprocessErr := PreprocessFile(path, preprocessOptions)
 	result := ProcessAndParseResult{
 		Preprocess: preprocessed,
@@ -28,6 +31,9 @@ func ProcessAndParseFile(path string, preprocessOptions PreprocessOptions, parse
 	}
 
 	parsed, parseErr := ParseBytes(path, []byte(preprocessed.Text), parseOptions)
+	resolver := newSourceMapResolver(preprocessed.SourceMap)
+	resolver.remapDiagnostics(parsed.Diagnostics)
+	resolver.remapFile(&parsed.File)
 	result.Parse = parsed
 	if parseErr != nil {
 		return result, parseErr

@@ -10,7 +10,8 @@ Main capabilities:
   - preprocess pipeline (#include, #define, conditionals, token-paste, stringify)
   - parser/AST for class/property/array/extern/delete/enum declarations
   - deterministic formatter with configurable indentation/wrapping
-  - native lintkit integration for shared rule registry and execution
+  - diagnostics model integrated with root lintkit APIs
+  - optional semantic lint passes available via AnalyzeFile
 
 Pipeline modes:
   - Raw mode: ParseFile/ParseBytes parse source without preprocess stage.

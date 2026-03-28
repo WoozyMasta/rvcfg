@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 // FormatOptions configures canonical config formatter.
@@ -418,14 +416,14 @@ func (f *formatter) writeAssignment(
 		return err
 	}
 
-	inlineLine := target + " " + operator + " " + inlineValue + ";"
-	if !wrapArray || value.Kind != ValueArray || !f.shouldWrapArray(value, inlineLine, assignmentName) {
-		f.writeLine(inlineLine)
+	inlineLineLen := len(target) + 1 + len(operator) + 1 + len(inlineValue) + 1
+	if !wrapArray || value.Kind != ValueArray || !f.shouldWrapArray(value, inlineLineLen, assignmentName) {
+		f.writeLineParts(target, " ", operator, " ", inlineValue, ";")
 
 		return nil
 	}
 
-	f.writeLine(target + " " + operator)
+	f.writeLineParts(target, " ", operator)
 	if err := f.writeWrappedArray(value, assignmentName); err != nil {
 		return err
 	}
@@ -460,15 +458,15 @@ func (f *formatter) writeWrappedArray(value Value, assignmentName string) error 
 			return err
 		}
 
-		inlineElementLine := inlineElement + ","
-		if element.Kind == ValueArray && f.shouldWrapArray(element, inlineElementLine, "") {
+		inlineElementLineLen := len(inlineElement) + 1
+		if element.Kind == ValueArray && f.shouldWrapArray(element, inlineElementLineLen, "") {
 			if err := f.writeWrappedArrayElement(element); err != nil {
 				return err
 			}
 			continue
 		}
 
-		f.writeLine(inlineElementLine)
+		f.writeLineParts(inlineElement, ",")
 	}
 
 	f.level--
@@ -495,13 +493,8 @@ func (f *formatter) writeWrappedScalarArrayGroups(value Value, groupSize int) er
 
 		row := ""
 		for chunkEnd := end; chunkEnd > i; chunkEnd-- {
-			rowValues := make([]string, 0, chunkEnd-i)
-			for j := i; j < chunkEnd; j++ {
-				rowValues = append(rowValues, value.Elements[j].Raw)
-			}
-
-			candidate := strings.Join(rowValues, ", ") + ","
-			if chunkEnd == i+1 || !f.shouldWrap(candidate) {
+			candidate := buildScalarRow(value.Elements[i:chunkEnd])
+			if chunkEnd == i+1 || !f.shouldWrap(len(candidate)) {
 				row = candidate
 				end = chunkEnd
 				break
@@ -545,15 +538,15 @@ func (f *formatter) writeWrappedArrayElement(value Value) error {
 			return err
 		}
 
-		inlineElementLine := inlineElement + ","
-		if element.Kind == ValueArray && f.shouldWrapArray(element, inlineElementLine, "") {
+		inlineElementLineLen := len(inlineElement) + 1
+		if element.Kind == ValueArray && f.shouldWrapArray(element, inlineElementLineLen, "") {
 			if err := f.writeWrappedArrayElement(element); err != nil {
 				return err
 			}
 			continue
 		}
 
-		f.writeLine(inlineElementLine)
+		f.writeLineParts(inlineElement, ",")
 	}
 
 	f.level--
@@ -563,17 +556,17 @@ func (f *formatter) writeWrappedArrayElement(value Value) error {
 }
 
 // shouldWrap checks whether current line exceeds configured soft width.
-func (f *formatter) shouldWrap(line string) bool {
+func (f *formatter) shouldWrap(lineLen int) bool {
 	if f.maxLineWidth <= 0 {
 		return false
 	}
 
-	return f.currentIndentWidth()+len(line) > f.maxLineWidth
+	return f.currentIndentWidth()+lineLen > f.maxLineWidth
 }
 
 // shouldWrapArray combines width-based and element-count based wrapping conditions.
-func (f *formatter) shouldWrapArray(value Value, line string, assignmentName string) bool {
-	if f.shouldWrap(line) {
+func (f *formatter) shouldWrapArray(value Value, lineLen int, assignmentName string) bool {
+	if f.shouldWrap(lineLen) {
 		return true
 	}
 
@@ -604,24 +597,38 @@ func (f *formatter) currentIndentWidth() int {
 
 // valueString serializes scalar or nested array value.
 func (f *formatter) valueString(value Value) (string, error) {
+	var builder strings.Builder
+	if err := appendValueString(&builder, value); err != nil {
+		return "", err
+	}
+
+	return builder.String(), nil
+}
+
+// appendValueString serializes value directly into builder without intermediate joins.
+func appendValueString(builder *strings.Builder, value Value) error {
 	switch value.Kind {
 	case ValueScalar:
-		return value.Raw, nil
-	case ValueArray:
-		parts := make([]string, 0, len(value.Elements))
+		builder.WriteString(value.Raw)
 
-		for _, element := range value.Elements {
-			text, err := f.valueString(element)
-			if err != nil {
-				return "", err
+		return nil
+	case ValueArray:
+		builder.WriteByte('{')
+		for index, element := range value.Elements {
+			if index > 0 {
+				builder.WriteString(", ")
 			}
 
-			parts = append(parts, text)
+			if err := appendValueString(builder, element); err != nil {
+				return err
+			}
 		}
 
-		return "{" + strings.Join(parts, ", ") + "}", nil
+		builder.WriteByte('}')
+
+		return nil
 	default:
-		return "", fmt.Errorf("unsupported value kind: %s", value.Kind)
+		return fmt.Errorf("unsupported value kind: %s", value.Kind)
 	}
 }
 
@@ -636,10 +643,44 @@ func (f *formatter) writeLine(line string) {
 	f.builder.WriteByte('\n')
 }
 
+// writeLineParts appends one formatted line from parts without temporary joins.
+func (f *formatter) writeLineParts(parts ...string) {
+	n := f.level * f.indentSize
+	for range n {
+		f.builder.WriteByte(f.indentChar)
+	}
+
+	for _, part := range parts {
+		f.builder.WriteString(part)
+	}
+
+	f.builder.WriteByte('\n')
+}
+
+// buildScalarRow joins scalar values into one row with trailing comma.
+func buildScalarRow(values []Value) string {
+	if len(values) == 0 {
+		return ","
+	}
+
+	var builder strings.Builder
+	for index, value := range values {
+		if index > 0 {
+			builder.WriteString(", ")
+		}
+
+		builder.WriteString(value.Raw)
+	}
+
+	builder.WriteByte(',')
+
+	return builder.String()
+}
+
 // hasErrorDiagnostics checks whether diagnostics contain any error-level issue.
 func hasErrorDiagnostics(diagnostics []Diagnostic) bool {
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Severity == lint.SeverityError {
+		if diagnostic.Severity == SeverityError {
 			return true
 		}
 	}

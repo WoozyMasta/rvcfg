@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"os"
 	"unicode"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 var (
@@ -21,7 +19,7 @@ var (
 
 // LexOptions configures lexer output volume and allocation profile.
 type LexOptions struct {
-	// CaptureLexeme stores token text in Token.Lexeme. Disabled by default to reduce allocations.
+	// CaptureLexeme is reserved for compatibility and currently has no effect.
 	CaptureLexeme bool `json:"capture_lexeme,omitempty" yaml:"capture_lexeme,omitempty"`
 
 	// EmitComments emits comment tokens. Disabled by default.
@@ -57,7 +55,7 @@ func LexBytesWithOptions(filename string, data []byte, opts LexOptions) ([]Token
 	tokens, diagnostics := l.scan()
 
 	for _, d := range diagnostics {
-		if d.Severity == lint.SeverityError {
+		if d.Severity == SeverityError {
 			return tokens, diagnostics, ErrLex
 		}
 	}
@@ -258,19 +256,18 @@ func (l *lexer) scan() ([]Token, []Diagnostic) {
 			diagnostics = append(diagnostics, Diagnostic{
 				Code:     CodeLexUnexpectedCharacter,
 				Message:  fmt.Sprintf("unexpected character %q", ch),
-				Severity: lint.SeverityWarning,
-				Start:    start,
-				End:      l.pos(),
+				Severity: SeverityWarning,
+				Start:    l.publicPos(start),
+				End:      l.publicPos(l.pos()),
 			})
 		}
 	}
 
 	eofPos := l.pos()
 	tokens = append(tokens, Token{
-		Kind:   TokenEOF,
-		Lexeme: "",
-		Start:  eofPos,
-		End:    eofPos,
+		Kind:  TokenEOF,
+		Start: eofPos,
+		End:   eofPos,
 	})
 
 	return tokens, diagnostics
@@ -403,9 +400,9 @@ func (l *lexer) scanString() (Token, *Diagnostic) {
 			diag := Diagnostic{
 				Code:     CodeLexUnterminatedString,
 				Message:  "unterminated string literal",
-				Severity: lint.SeverityError,
-				Start:    start,
-				End:      l.pos(),
+				Severity: SeverityError,
+				Start:    l.publicPos(start),
+				End:      l.publicPos(l.pos()),
 			}
 
 			return l.makeToken(TokenString, start, startIdx), &diag
@@ -417,9 +414,9 @@ func (l *lexer) scanString() (Token, *Diagnostic) {
 	diag := Diagnostic{
 		Code:     CodeLexUnterminatedString,
 		Message:  "unterminated string literal",
-		Severity: lint.SeverityError,
-		Start:    start,
-		End:      l.pos(),
+		Severity: SeverityError,
+		Start:    l.publicPos(start),
+		End:      l.publicPos(l.pos()),
 	}
 
 	return l.makeToken(TokenString, start, startIdx), &diag
@@ -472,9 +469,9 @@ func (l *lexer) scanBlockComment() (Token, *Diagnostic) {
 	diag := Diagnostic{
 		Code:     CodeLexUnterminatedBlockComment,
 		Message:  "unterminated block comment",
-		Severity: lint.SeverityError,
-		Start:    start,
-		End:      l.pos(),
+		Severity: SeverityError,
+		Start:    l.publicPos(start),
+		End:      l.publicPos(l.pos()),
 	}
 
 	return l.makeToken(TokenComment, start, startIdx), &diag
@@ -517,7 +514,9 @@ func (l *lexer) consumeNewline() {
 }
 
 // makeToken builds token from start and current scanner position.
-func (l *lexer) makeToken(kind TokenKind, start lint.Position, startIdx int) Token {
+func (l *lexer) makeToken(kind TokenKind, start TokenPosition, startIdx int) Token {
+	_ = startIdx
+
 	end := l.pos()
 	if end.Offset > start.Offset {
 		end.Offset--
@@ -527,16 +526,10 @@ func (l *lexer) makeToken(kind TokenKind, start lint.Position, startIdx int) Tok
 		}
 	}
 
-	lexeme := ""
-	if l.opts.CaptureLexeme {
-		lexeme = string(l.data[startIdx:l.index])
-	}
-
 	return Token{
-		Kind:   kind,
-		Lexeme: lexeme,
-		Start:  start,
-		End:    end,
+		Kind:  kind,
+		Start: start,
+		End:   end,
 	}
 }
 
@@ -563,12 +556,21 @@ func (l *lexer) keywordKindByRange(start int, end int) (TokenKind, bool) {
 }
 
 // pos returns current scanner source position.
-func (l *lexer) pos() lint.Position {
-	return lint.Position{
+func (l *lexer) pos() TokenPosition {
+	return TokenPosition{
+		Line:   uint32(l.line),
+		Column: uint32(l.column),
+		Offset: uint32(l.index),
+	}
+}
+
+// publicPos converts compact token position to public position with filename.
+func (l *lexer) publicPos(pos TokenPosition) Position {
+	return Position{
 		File:   l.filename,
-		Line:   l.line,
-		Column: l.column,
-		Offset: l.index,
+		Line:   int(pos.Line),
+		Column: int(pos.Column),
+		Offset: int(pos.Offset),
 	}
 }
 

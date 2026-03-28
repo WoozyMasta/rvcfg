@@ -196,6 +196,24 @@ All diagnostic codes are documented in the full registry:
 `rvcfg` exposes parser and preprocess diagnostics as `lintkit` rules.
 
 ```go
+sourceBytes, err := os.ReadFile("config.cpp")
+if err != nil {
+  return err
+}
+
+parsed, err := rvcfg.ParseFile("config.cpp", rvcfg.ParseOptions{})
+if err != nil {
+  return err
+}
+
+optional := rvcfg.AnalyzeFile(
+  parsed.File,
+  sourceBytes, // original source bytes (or preprocessed text bytes)
+  rvcfg.AnalyzeOptions{},
+)
+
+allDiagnostics := append(parsed.Diagnostics, optional...)
+
 engine := linting.NewEngine()
 if err := rvcfg.RegisterLintRules(engine); err != nil {
   return err
@@ -208,7 +226,7 @@ runCtx := lint.RunContext{
   TargetPath: "config.cpp",
   TargetKind: "rvcfg.config",
 }
-rvcfg.AttachLintDiagnostics(&runCtx, parsed.Diagnostics)
+rvcfg.AttachLintDiagnostics(&runCtx, allDiagnostics)
 
 result, err := engine.Run(context.Background(), runCtx, nil)
 if err != nil {
@@ -219,3 +237,4 @@ _ = result
 
 Exported short code format uses catalog prefix `CFG` + numeric code.
 Rule IDs use semantic form `rvcfg.<stage>.<description-slug>`.
+

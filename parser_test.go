@@ -4,8 +4,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 func TestParseFileVehicleConfig(t *testing.T) {
@@ -19,7 +17,7 @@ func TestParseFileVehicleConfig(t *testing.T) {
 
 	if len(result.Diagnostics) > 0 {
 		for _, d := range result.Diagnostics {
-			if d.Severity == lint.SeverityError {
+			if d.Severity == SeverityError {
 				t.Fatalf("unexpected parse diagnostic: %s", d.Error())
 			}
 		}
@@ -170,7 +168,7 @@ class Root
 
 	foundAutoFixWarning := false
 	for _, diagnostic := range result.Diagnostics {
-		if diagnostic.Code != CodeParAutofixClassSemicolon || diagnostic.Severity != lint.SeverityWarning {
+		if diagnostic.Code != CodeParAutofixClassSemicolon || diagnostic.Severity != SeverityWarning {
 			continue
 		}
 
@@ -286,7 +284,7 @@ class CfgTest
 	}
 
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Severity == lint.SeverityError {
+		if diagnostic.Severity == SeverityError {
 			t.Fatalf("LexBytes parity diagnostic: %s", diagnostic.Error())
 		}
 	}
@@ -508,7 +506,7 @@ class Cfg
 	}
 }
 
-func TestParseBytesDerivedNestedClassWithoutBaseInfo(t *testing.T) {
+func TestParseBytesDoesNotEmitOptionalLintDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	source := `
@@ -542,103 +540,14 @@ class Parent: ParentBase
 };
 `
 
-	result, err := ParseBytes("derived-nested-no-base.cpp", []byte(source), ParseOptions{})
+	result, err := ParseBytes("parse-no-optional-lint.cpp", []byte(source), ParseOptions{})
 	if err != nil {
-		t.Fatalf("ParseBytes derived nested class source error: %v", err)
-	}
-
-	found := false
-	for _, diagnostic := range result.Diagnostics {
-		if diagnostic.Code != CodeParDerivedNestedClassWithoutBase {
-			continue
-		}
-
-		if diagnostic.Severity != lint.SeverityInfo {
-			t.Fatalf("diagnostic severity=%q, want %q", diagnostic.Severity, lint.SeverityInfo)
-		}
-
-		found = true
-
-		break
-	}
-
-	if !found {
-		t.Fatalf("expected PAR026 info diagnostic, got %v", result.Diagnostics)
-	}
-}
-
-func TestParseBytesDerivedNestedClassWithoutBaseInfoNotEmittedForExplicitInheritance(t *testing.T) {
-	t.Parallel()
-
-	source := `
-class ParentBase
-{
-	class DamageSystem
-	{
-		class DamageZones
-		{
-			class Torso {};
-		};
-	};
-};
-
-class Parent: ParentBase
-{
-	class DamageSystem: DamageSystem
-	{
-		class DamageZones: DamageZones
-		{
-			class Torso: Torso
-			{
-				class Health: Health
-				{
-					hitpoints = 750000;
-				};
-			};
-		};
-	};
-};
-`
-
-	result, err := ParseBytes("derived-nested-explicit-base.cpp", []byte(source), ParseOptions{})
-	if err != nil {
-		t.Fatalf("ParseBytes explicit inheritance source error: %v", err)
+		t.Fatalf("ParseBytes source error: %v", err)
 	}
 
 	for _, diagnostic := range result.Diagnostics {
 		if diagnostic.Code == CodeParDerivedNestedClassWithoutBase {
-			t.Fatalf("unexpected PAR026 diagnostic: %v", diagnostic)
-		}
-	}
-}
-
-func TestParseBytesDerivedNestedClassWithoutBaseInfoNotEmittedForNonDerivedParent(t *testing.T) {
-	t.Parallel()
-
-	source := `
-class Parent
-{
-	class DamageSystem
-	{
-		class DamageZones
-		{
-			class Torso
-			{
-				hitpoints = 750000;
-			};
-		};
-	};
-};
-`
-
-	result, err := ParseBytes("non-derived-parent.cpp", []byte(source), ParseOptions{})
-	if err != nil {
-		t.Fatalf("ParseBytes non-derived parent source error: %v", err)
-	}
-
-	for _, diagnostic := range result.Diagnostics {
-		if diagnostic.Code == CodeParDerivedNestedClassWithoutBase {
-			t.Fatalf("unexpected PAR026 diagnostic: %v", diagnostic)
+			t.Fatalf("unexpected PAR026 parser diagnostic: %v", diagnostic)
 		}
 	}
 }

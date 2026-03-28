@@ -5,13 +5,11 @@
 package rvcfg
 
 import (
-	"bytes"
-
-	"github.com/woozymasta/lintkit/lint"
+	"unsafe"
 )
 
 // parseClassLikeName parses class-like names and accepts digit-leading forms like `1kHz_*`.
-func (p *parser) parseClassLikeName(code lint.Code, message string) (string, bool) {
+func (p *parser) parseClassLikeName(code Code, message string) (string, bool) {
 	p.skipTrivia()
 
 	token := p.peek()
@@ -20,7 +18,7 @@ func (p *parser) parseClassLikeName(code lint.Code, message string) (string, boo
 	}
 
 	if token.Kind != TokenNumber {
-		p.emitError(code, token.Start, message)
+		p.emitError(code, p.tokStart(token), message)
 
 		return "", false
 	}
@@ -33,7 +31,7 @@ func (p *parser) parseClassLikeName(code lint.Code, message string) (string, boo
 		if p.strict {
 			p.emitError(
 				CodeParStrictDigitLeadingClassName,
-				numberToken.Start,
+				p.tokStart(numberToken),
 				"strict mode: class-like name must not start with digit",
 			)
 
@@ -45,23 +43,27 @@ func (p *parser) parseClassLikeName(code lint.Code, message string) (string, boo
 		return name, true
 	}
 
-	p.emitError(code, token.Start, message)
+	p.emitError(code, p.tokStart(token), message)
 
 	return "", false
 }
 
 // emitError appends parser error diagnostic.
-func (p *parser) emitError(code lint.Code, at lint.Position, message string) {
-	p.emit(code, lint.SeverityError, at, message)
+func (p *parser) emitError(code Code, at Position, message string) {
+	p.emit(code, SeverityError, at, message)
 }
 
 // emitWarning appends parser warning diagnostic.
-func (p *parser) emitWarning(code lint.Code, at lint.Position, message string) {
-	p.emit(code, lint.SeverityWarning, at, message)
+func (p *parser) emitWarning(code Code, at Position, message string) {
+	p.emit(code, SeverityWarning, at, message)
 }
 
 // emit appends parser diagnostic with explicit severity.
-func (p *parser) emit(code lint.Code, severity lint.Severity, at lint.Position, message string) {
+func (p *parser) emit(code Code, severity Severity, at Position, message string) {
+	if at.File == "" {
+		at.File = p.filename
+	}
+
 	p.diagnostics = append(p.diagnostics, Diagnostic{
 		Code:     code,
 		Message:  message,
@@ -92,37 +94,59 @@ func (p *parser) arrayAssignNode(nameToken Token, appendMode bool, value Value) 
 
 // tokenText returns token text using captured lexeme or source offsets.
 func (p *parser) tokenText(token Token) string {
-	if token.Lexeme != "" {
-		return token.Lexeme
-	}
-
-	if token.Start.Offset >= 0 && token.End.Offset >= token.Start.Offset && token.End.Offset < len(p.source) {
-		return string(p.source[token.Start.Offset : token.End.Offset+1])
+	if token.End.Offset >= token.Start.Offset &&
+		int(token.End.Offset) < len(p.sourceText) {
+		return p.sourceText[int(token.Start.Offset) : int(token.End.Offset)+1]
 	}
 
 	return token.Kind.String()
 }
 
-// tokenEquals checks token text without allocating when possible.
-func (p *parser) tokenEquals(token Token, literal []byte) bool {
-	if token.Lexeme != "" {
-		return token.Lexeme == string(literal)
+// tokStart converts compact token start position to public position.
+func (p *parser) tokStart(token Token) Position {
+	return Position{
+		Line:   int(token.Start.Line),
+		Column: int(token.Start.Column),
+		Offset: int(token.Start.Offset),
 	}
+}
 
-	if token.Start.Offset < 0 || token.End.Offset < token.Start.Offset || token.End.Offset >= len(p.source) {
+// tokEnd converts compact token end position to public position.
+func (p *parser) tokEnd(token Token) Position {
+	return Position{
+		Line:   int(token.End.Line),
+		Column: int(token.End.Column),
+		Offset: int(token.End.Offset),
+	}
+}
+
+// tokenEquals checks token text without allocating when possible.
+func (p *parser) tokenEquals(token Token, literal string) bool {
+	if token.End.Offset < token.Start.Offset ||
+		int(token.End.Offset) >= len(p.sourceText) {
 		return false
 	}
 
-	return bytes.Equal(p.source[token.Start.Offset:token.End.Offset+1], literal)
+	return p.sourceText[int(token.Start.Offset):int(token.End.Offset)+1] == literal
 }
 
 // rawByOffsets returns source fragment by inclusive byte offsets.
 func (p *parser) rawByOffsets(start int, end int) string {
-	if start < 0 || end < start || end >= len(p.source) {
+	if start < 0 || end < start || end >= len(p.sourceText) {
 		return ""
 	}
 
-	return string(p.source[start : end+1])
+	return p.sourceText[start : end+1]
+}
+
+// bytesToStringView returns zero-copy string view over source bytes.
+// Input bytes must not be mutated while parser uses this view.
+func bytesToStringView(data []byte) string {
+	if len(data) == 0 {
+		return ""
+	}
+
+	return unsafe.String(unsafe.SliceData(data), len(data))
 }
 
 // prev returns previously consumed token or zero token at parser start.
@@ -174,7 +198,11 @@ func (p *parser) advance() {
 
 // isEOF checks current parser token kind.
 func (p *parser) isEOF() bool {
-	return p.peek().Kind == TokenEOF
+	if p.index >= len(p.tokens) {
+		return true
+	}
+
+	return p.tokens[p.index].Kind == TokenEOF
 }
 
 // consumeLeadingComments reads leading comments and skips blank lines before statement.
@@ -186,8 +214,8 @@ func (p *parser) consumeLeadingComments() []Comment {
 		case TokenComment:
 			comments = append(comments, Comment{
 				Text:  p.tokenText(token),
-				Start: token.Start,
-				End:   token.End,
+				Start: p.tokStart(token),
+				End:   p.tokEnd(token),
 			})
 			p.advance()
 		case TokenNewline:
@@ -226,7 +254,7 @@ func (p *parser) consumeTrailingComment(line int) (Comment, bool) {
 
 	return Comment{
 		Text:  p.tokenText(token),
-		Start: token.Start,
-		End:   token.End,
+		Start: p.tokStart(token),
+		End:   p.tokEnd(token),
 	}, true
 }

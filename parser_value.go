@@ -8,7 +8,7 @@ package rvcfg
 func (p *parser) parseValue(stopMask valueStopMask) (Value, bool) {
 	p.skipTrivia()
 	if p.isEOF() {
-		p.emitError(CodeParExpectedValueBeforeEOF, p.prev().End, "expected value before end of file")
+		p.emitError(CodeParExpectedValueBeforeEOF, p.tokEnd(p.prev()), "expected value before end of file")
 
 		return Value{}, false
 	}
@@ -18,16 +18,41 @@ func (p *parser) parseValue(stopMask valueStopMask) (Value, bool) {
 	}
 
 	if p.isStopToken(p.peek().Kind, stopMask) {
-		p.emitError(CodeParExpectedValue, p.peek().Start, "expected value")
+		p.emitError(CodeParExpectedValue, p.tokStart(p.peek()), "expected value")
 
 		return Value{}, false
 	}
 
-	start := p.peek().Start
-	startOffset := p.peek().Start.Offset
-	endOffset := p.peek().End.Offset
-	endPos := p.peek().End
+	startToken := p.peek()
+	start := p.tokStart(startToken)
+	endPos := p.tokEnd(startToken)
 
+	if !p.captureScalarRaw {
+		for !p.isEOF() {
+			token := p.peek()
+			if token.Kind == TokenComment || token.Kind == TokenNewline {
+				p.advance()
+
+				continue
+			}
+
+			if p.isStopToken(token.Kind, stopMask) {
+				break
+			}
+
+			endPos = p.tokEnd(token)
+			p.advance()
+		}
+
+		return Value{
+			Kind:  ValueScalar,
+			Start: start,
+			End:   endPos,
+		}, true
+	}
+
+	startOffset := int(startToken.Start.Offset)
+	endOffset := int(startToken.End.Offset)
 	for !p.isEOF() {
 		token := p.peek()
 		if token.Kind == TokenComment || token.Kind == TokenNewline {
@@ -40,25 +65,22 @@ func (p *parser) parseValue(stopMask valueStopMask) (Value, bool) {
 			break
 		}
 
-		endOffset = token.End.Offset
-		endPos = token.End
+		endOffset = int(token.End.Offset)
+		endPos = p.tokEnd(token)
 		p.advance()
 	}
 
-	raw := ""
 	if startOffset < 0 || endOffset < startOffset {
 		p.emitError(CodeParExpectedScalarValue, start, "expected scalar value")
 
 		return Value{}, false
 	}
 
-	if p.captureScalarRaw {
-		raw = p.rawByOffsets(startOffset, endOffset)
-		if raw == "" {
-			p.emitError(CodeParExpectedScalarValue, start, "expected scalar value")
+	raw := p.rawByOffsets(startOffset, endOffset)
+	if raw == "" {
+		p.emitError(CodeParExpectedScalarValue, start, "expected scalar value")
 
-			return Value{}, false
-		}
+		return Value{}, false
 	}
 
 	return Value{
@@ -75,22 +97,19 @@ func (p *parser) parseArrayValue() (Value, bool) {
 	capHint := p.estimateArrayElementCap()
 	value := Value{
 		Kind:  ValueArray,
-		Start: startToken.Start,
-	}
-	if capHint > 0 {
-		value.Elements = make([]Value, 0, capHint)
+		Start: p.tokStart(startToken),
 	}
 
 	for {
 		p.skipTrivia()
 		if p.isEOF() {
-			p.emitError(CodeParUnterminatedArrayLiteral, startToken.Start, "unterminated array literal")
+			p.emitError(CodeParUnterminatedArrayLiteral, p.tokStart(startToken), "unterminated array literal")
 
 			return Value{}, false
 		}
 
 		if p.match(TokenRBrace) {
-			value.End = p.prev().End
+			value.End = p.tokEnd(p.prev())
 
 			return value, true
 		}
@@ -100,7 +119,12 @@ func (p *parser) parseArrayValue() (Value, bool) {
 			p.recoverArrayItem()
 		} else {
 			if value.Elements == nil {
-				value.Elements = make([]Value, 0, 4)
+				switch {
+				case capHint > 0:
+					value.Elements = make([]Value, 0, capHint)
+				default:
+					value.Elements = make([]Value, 0, 1)
+				}
 			}
 
 			value.Elements = append(value.Elements, item)
@@ -118,12 +142,12 @@ func (p *parser) parseArrayValue() (Value, bool) {
 		}
 
 		if p.match(TokenRBrace) {
-			value.End = p.prev().End
+			value.End = p.tokEnd(p.prev())
 
 			return value, true
 		}
 
-		p.emitError(CodeParExpectedArrayDelimiter, p.peek().Start, "expected ',' or '}' in array literal")
+		p.emitError(CodeParExpectedArrayDelimiter, p.tokStart(p.peek()), "expected ',' or '}' in array literal")
 		p.recoverArrayItem()
 	}
 }
@@ -189,10 +213,10 @@ func (p *parser) parseBaseExpression() string {
 		}
 
 		if startOffset < 0 {
-			startOffset = token.Start.Offset
+			startOffset = int(token.Start.Offset)
 		}
 
-		endOffset = token.End.Offset
+		endOffset = int(token.End.Offset)
 		p.advance()
 	}
 

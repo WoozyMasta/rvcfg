@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/woozymasta/lintkit/lint"
 )
 
 // testIncludeResolver maps include names to concrete file paths for resolver tests.
@@ -62,7 +60,7 @@ func TestPreprocessFile_ConfigIncludesAndMacros(t *testing.T) {
 	}
 
 	for _, d := range got.Diagnostics {
-		if d.Severity == lint.SeverityError {
+		if d.Severity == SeverityError {
 			t.Fatalf("unexpected error diagnostic: %s", d.Error())
 		}
 	}
@@ -402,7 +400,7 @@ func TestPreprocessFile_UnexpectedConditionalDirectives(t *testing.T) {
 	cases := []struct {
 		name         string
 		source       string
-		expectedCode lint.Code
+		expectedCode Code
 	}{
 		{name: "else", source: "#else\nclass A {};\n", expectedCode: CodePPUnexpectedElse},
 		{name: "endif", source: "#endif\nclass A {};\n", expectedCode: CodePPUnexpectedEndif},

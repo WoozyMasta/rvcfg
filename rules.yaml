@@ -1,0 +1,394 @@
+modules:
+  - id: rvcfg
+    name: Real Virtuality Configs
+    description: Lint rules for Real Virtuality config lexer, parser and preprocessor flows.
+rules:
+  - id: rvcfg.lex.unexpected-character
+    module: rvcfg
+    scope: lex
+    scope_description: Lexer diagnostics.
+    code: CFG1001
+    message: unexpected character
+    default_severity: warning
+  - id: rvcfg.lex.unterminated-string-literal
+    module: rvcfg
+    scope: lex
+    scope_description: Lexer diagnostics.
+    code: CFG1002
+    message: unterminated string literal
+    default_severity: error
+  - id: rvcfg.lex.unterminated-block-comment
+    module: rvcfg
+    scope: lex
+    scope_description: Lexer diagnostics.
+    code: CFG1003
+    message: unterminated block comment
+    default_severity: error
+  - id: rvcfg.parse.unexpected-token
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2001
+    message: unexpected token
+    default_severity: error
+  - id: rvcfg.parse.expected-class-name
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2002
+    message: expected class name
+    default_severity: error
+  - id: rvcfg.parse.expected-class-body-or-semicolon
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2003
+    message: expected class body or semicolon
+    default_severity: error
+  - id: rvcfg.parse.expected-closing-brace-for-class-body
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2004
+    message: expected closing brace for class body
+    default_severity: error
+  - id: rvcfg.parse.missing-semicolon-after-class-declaration
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2005
+    message: missing semicolon after class declaration
+    default_severity: error
+  - id: rvcfg.parse.expected-name-after-delete
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2006
+    message: expected name after `delete`
+    default_severity: error
+  - id: rvcfg.parse.missing-semicolon-after-delete-declaration
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2007
+    message: missing semicolon after delete declaration
+    default_severity: error
+  - id: rvcfg.parse.expected-extern-declaration-name
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2008
+    message: expected `extern` declaration name
+    default_severity: error
+  - id: rvcfg.parse.missing-semicolon-after-extern-declaration
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2009
+    message: missing semicolon after extern declaration
+    default_severity: error
+  - id: rvcfg.parse.expected-right-bracket-in-array-assignment-target
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2010
+    message: expected right bracket in array assignment target
+    default_severity: error
+  - id: rvcfg.parse.expected-assignment-operator-in-array-assignment
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2011
+    message: expected assignment operator in array assignment
+    default_severity: error
+  - id: rvcfg.parse.missing-semicolon-after-array-assignment
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2012
+    message: missing semicolon after array assignment
+    default_severity: error
+  - id: rvcfg.parse.expected-assignment-operator
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2013
+    message: expected assignment operator
+    default_severity: error
+  - id: rvcfg.parse.missing-semicolon-after-assignment
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2014
+    message: missing semicolon after assignment
+    default_severity: error
+  - id: rvcfg.parse.expected-value-before-end-of-file
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2015
+    message: expected value before end of file
+    default_severity: error
+  - id: rvcfg.parse.expected-value
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2016
+    message: expected value
+    default_severity: error
+  - id: rvcfg.parse.expected-scalar-value
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2017
+    message: expected scalar value
+    default_severity: error
+  - id: rvcfg.parse.unterminated-array-literal
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2018
+    message: unterminated array literal
+    default_severity: error
+  - id: rvcfg.parse.expected-comma-or-right-brace-in-array-literal
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2019
+    message: expected comma or right brace in array literal
+    default_severity: error
+  - id: rvcfg.parse.autofix-inserted-missing-class-semicolon
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2020
+    message: autofix inserted missing class semicolon
+    description: Parser recovered by inserting a missing semicolon after class declaration. Keep semicolons explicit to avoid parser recovery differences between tools.
+    default_severity: warning
+  - id: rvcfg.parse.expected-enum-body
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2021
+    message: expected enum body
+    default_severity: error
+  - id: rvcfg.parse.expected-enum-item-name
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2022
+    message: expected enum item name
+    default_severity: error
+  - id: rvcfg.parse.expected-enum-item-delimiter
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2023
+    message: expected enum item delimiter
+    default_severity: error
+  - id: rvcfg.parse.missing-semicolon-after-enum-declaration
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2024
+    message: missing semicolon after enum declaration
+    default_severity: error
+  - id: rvcfg.parse.class-like-names-must-not-start-with-digit-in-strict-mode
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2025
+    message: class-like names must not start with digit in strict mode
+    default_severity: error
+  - id: rvcfg.parse.nested-class-in-derived-class-has-no-explicit-base
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2026
+    message: nested class in derived class has no explicit base
+    description: This can replace inherited subtree instead of extending it. Add explicit inheritance to make merge behavior predictable.
+    default_severity: info
+  - id: rvcfg.parse.scalar-may-be-unsupported-by-rap-encoder
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2027
+    message: scalar may be unsupported by RAP encoder
+    description: Scalar token sequence cannot be classified into RAP scalar subtype safely. Use quoted string, integer, float, or identifier-like scalar form.
+    default_severity: warning
+  - id: rvcfg.parse.float-loses-precision-in-rap-float32-conversion
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2028
+    message: float loses precision in RAP float32 conversion
+    description: RAP stores float scalars as float32. Parsed value differs noticeably after float64->float32 conversion.
+    default_severity: warning
+  - id: rvcfg.parse.float-may-collapse-to-zero-in-rap-float32-conversion
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2029
+    message: float may collapse to zero in RAP float32 conversion
+    description: Very small non-zero float becomes zero when encoded as RAP float32.
+    default_severity: warning
+  - id: rvcfg.parse.string-escape-style-may-be-incompatible-with-bi-cfgconvert
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2030
+    message: string escape style may be incompatible with BI/CfgConvert
+    description: Detected C-style backslash quote escape in string scalar. Prefer doubled quote escaping for BI/CfgConvert compatibility.
+    default_severity: warning
+  - id: rvcfg.parse.extreme-float-magnitude-may-normalize-unexpectedly-in-rap-round-trip
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2031
+    message: extreme float magnitude may normalize unexpectedly in RAP round-trip
+    description: Extreme exponent/magnitude float can look unstable in text output after RAP float32 conversion.
+    default_severity: info
+  - id: rvcfg.parse.float-overflows-to-inf-in-rap-float32-conversion
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2032
+    message: float overflows to Inf in RAP float32 conversion
+    description: Float literal exceeds float32 finite range and becomes +Inf/-Inf during RAP numeric encoding.
+    default_severity: warning
+  - id: rvcfg.parse.non-finite-float-literal-is-unsafe-for-rap-numeric-encoding
+    module: rvcfg
+    scope: parse
+    scope_description: Parser diagnostics.
+    code: CFG2033
+    message: non-finite float literal is unsafe for RAP numeric encoding
+    description: Detected NaN/Inf-like scalar literal. RAP numeric scalar encoding expects finite values.
+    default_severity: warning
+  - id: rvcfg.preprocess.include-target-not-found-or-unreadable
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3001
+    message: include target not found or unreadable
+    description: Check include path, include roots, and file access permissions.
+    default_severity: error
+  - id: rvcfg.preprocess.unsupported-config-intrinsic
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3002
+    message: unsupported config intrinsic
+    description: Current preprocessor mode does not support this intrinsic (for example `__EXEC` or `__EVAL`). Remove it or preprocess with toolchain that supports this intrinsic.
+    default_severity: error
+  - id: rvcfg.preprocess.macro-expansion-failure
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3003
+    message: macro expansion failure
+    description: Usually caused by invalid invocation, argument count mismatch, or recursive expansion limit. Check macro definition and call site.
+    default_severity: error
+  - id: rvcfg.preprocess.unterminated-conditional-block
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3004
+    message: unterminated conditional block
+    description: Add missing `#endif` for active `#if` or `#ifdef` frame.
+    default_severity: error
+  - id: rvcfg.preprocess.invalid-include-syntax
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3005
+    message: invalid include syntax
+    description: Use valid include directive format and quote style expected by this parser mode.
+    default_severity: error
+  - id: rvcfg.preprocess.unexpected-elif-directive
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3006
+    message: unexpected elif directive
+    description: Ensure `#elif` is placed after matching `#if` and before `#endif`.
+    default_severity: error
+  - id: rvcfg.preprocess.unexpected-else-directive
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3007
+    message: unexpected else directive
+    description: 'Check conditional directive structure: `#else` must be inside active block and only once per frame.'
+    default_severity: error
+  - id: rvcfg.preprocess.unexpected-endif-directive
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3008
+    message: unexpected endif directive
+    description: Remove stray `#endif` or restore missing opening directive.
+    default_severity: error
+  - id: rvcfg.preprocess.error-directive-triggered
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3009
+    message: '`#error` directive triggered'
+    description: Source contains explicit `#error` directive and preprocessing stops. Resolve condition or remove debug guard.
+    default_severity: error
+  - id: rvcfg.preprocess.unsupported-directive
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3011
+    message: unsupported directive
+    description: Directive token is recognized as preprocessor command but not supported by this implementation mode.
+    default_severity: error
+  - id: rvcfg.preprocess.missing-macro-name-in-define
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3012
+    message: missing macro name in define
+    description: Add valid identifier after `#define` keyword.
+    default_severity: error
+  - id: rvcfg.preprocess.invalid-macro-name-in-define
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3013
+    message: invalid macro name in define
+    description: Macro names must match parser identifier rules.
+    default_severity: error
+  - id: rvcfg.preprocess.unterminated-macro-parameter-list
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3014
+    message: unterminated macro parameter list
+    description: Add missing closing parenthesis in function-like `#define`.
+    default_severity: error
+  - id: rvcfg.preprocess.macro-redefinition
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3015
+    message: macro redefinition
+    description: Later definition overrides previous one in current preprocessor state.
+    default_severity: warning
+  - id: rvcfg.preprocess.unresolved-macro-like-invocation
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3016
+    message: unresolved macro-like invocation
+    description: Invocation looks like macro call but no matching definition was found. Check macro name, scope, and include order.
+    default_severity: error
+  - id: rvcfg.preprocess.unsupported-has-include-in-conditional-directive
+    module: rvcfg
+    scope: preprocess
+    scope_description: Preprocessor diagnostics.
+    code: CFG3017
+    message: unsupported `__has_include` in conditional directive
+    description: Conditional expression uses `__has_include`, which is not supported in this preprocessor mode.
+    default_severity: error
