@@ -177,7 +177,7 @@ rvcfg.FormatOptions{
 
 Diagnostics are stable and machine-readable:
 
-* code (`RVCFG_PAR001`, `RVCFG_PP015`, ...)
+* code (`RVCFG2001`, `RVCFG3015`, ...)
 * severity (`error`/`warning`)
 * exact source position
 
