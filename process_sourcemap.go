@@ -109,10 +109,7 @@ func (r sourceMapResolver) remapPosition(position Position) Position {
 		remapped.File = entry.SourceFile
 	}
 
-	lineDelta := position.Line - entry.OutputStartLine
-	if lineDelta < 0 {
-		lineDelta = 0
-	}
+	lineDelta := max(position.Line-entry.OutputStartLine, 0)
 
 	remapped.Line = entry.SourceStartLine + lineDelta
 	remapped.Column = remapColumn(position.Column, entry)
@@ -166,10 +163,7 @@ func remapColumn(outputColumn int, entry SourceMapEntry) int {
 		sourceStart = 1
 	}
 
-	column := sourceStart + (outputColumn - outputStart)
-	if column < 1 {
-		column = 1
-	}
+	column := max(sourceStart+(outputColumn-outputStart), 1)
 
 	return column
 }
